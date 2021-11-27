@@ -26,8 +26,7 @@ class StatelessDataset(Dataset):
 
 
 class MultiStageDataModule(pl.LightningDataModule):
-    """DataModule with multiple stages for different data
-    """
+    """DataModule with multiple stages for different data"""
 
     def __init__(self, traindms, valdm, safe=False):
         super().__init__()

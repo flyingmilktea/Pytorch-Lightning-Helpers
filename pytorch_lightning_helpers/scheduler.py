@@ -13,12 +13,6 @@ torch.backends.cudnn.benchmark = True
 from itertools import accumulate
 
 import pytorch_lightning as pl
-import wandb
-from speech_resynthesis.data.basic import (
-    np,
-    plot_spectrogram_to_numpy,
-    real_fake_distribution,
-)
 
 
 class DynamicWarmerScheduler(pl.Callback):
@@ -121,5 +115,3 @@ class SwitchDataLoaderScheduler(pl.Callback):
         for i, e in enumerate(self.max_epoch_each_stage):
             if trainer.current_epoch == e - 1:
                 trainer.datamodule.set_phase(i + 1)
-
-

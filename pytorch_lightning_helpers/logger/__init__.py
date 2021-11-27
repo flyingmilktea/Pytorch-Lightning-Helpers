@@ -1,5 +1,6 @@
 from pytorch_lightning_helpers import wandb_media_log
 
+
 class LoggerScheduler(pl.Callback):
     def __init__(self, log_figure_step):
         super().__init__()
@@ -29,6 +30,3 @@ class LoggerScheduler(pl.Callback):
                 step=trainer.global_step,
                 commit=False,
             )
-
-
-
