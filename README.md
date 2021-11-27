@@ -1,5 +1,5 @@
 # Pytorch-Lightning-Helpers
-Customization on top of pytorch-lightning for easy and quick experimentations.
+Customization on top of pytorch-lightning for quick and easy experimentations.
 
 ## Principles
 - Plug-and-playable loss functions, models, data-modules and loggers.

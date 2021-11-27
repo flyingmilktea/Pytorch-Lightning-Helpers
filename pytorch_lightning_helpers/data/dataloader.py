@@ -7,12 +7,9 @@ from nonechucks import SafeDataset
 from torch.utils.data import DataLoader, Dataset
 
 
-class SpeechResynthesisDataset(Dataset):
-    """Dataset for Speech Resynthesis
-    Returns:
-        speaker_id: speaker id number.
-        feat: Wav2Vec feature tensor.
-        mel: log mel spectrogram tensor.
+class StatelessDataset(Dataset):
+    """Dataset for stateless loading.
+    Counter examples include speaker embedder and mel-scale matrix
     """
 
     def __init__(self, dataset, _load_datapath, _load_data):
@@ -28,7 +25,10 @@ class SpeechResynthesisDataset(Dataset):
         return self._load_data(*self.datalist[index])
 
 
-class SRDataModule(pl.LightningDataModule):
+class MultiStageDataModule(pl.LightningDataModule):
+    """DataModule with multiple stages for different data
+    """
+
     def __init__(self, traindms, valdm, safe=False):
         super().__init__()
         self.traindms = traindms
