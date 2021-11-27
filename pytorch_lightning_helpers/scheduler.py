@@ -14,7 +14,6 @@ from itertools import accumulate
 
 import pytorch_lightning as pl
 import wandb
-
 from speech_resynthesis.data.basic import (
     np,
     plot_spectrogram_to_numpy,

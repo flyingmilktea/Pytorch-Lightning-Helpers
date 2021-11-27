@@ -2,7 +2,6 @@ import random
 from pathlib import Path
 
 from loguru import logger
-
 from speech_resynthesis.data.basic import (
     get_file_under_current_path,
     get_files_under_speaker_id,
