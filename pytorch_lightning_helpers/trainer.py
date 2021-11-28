@@ -7,14 +7,16 @@ from toolz import compose
 from pytorch_lightning_helpers.loss import resize_mel, scale_loss
 
 
-class BaseTrainer(pl.LightningModule):
-    def on_fit_start():
+class BaseLightningModule(pl.LightningModule):
+    def on_fit_start(self):
+        assert hasattr(self, 'process'), "'self.process not defined"
+        assert hasattr(self, 'lossfuncs'), "'self.lossfuncs not defined"
         self.process = compose(*self.process)
         self.loss_map = self.lossfuncs['order']
         self.train_losses = {}
         for name, losses in self.lossfuncs['train'].items():
             self.train_losses[name] = compose(*[scale_loss(**loss) for loss in losses])
-        self.val_losses = compose(*[scale_loss(**loss) for loss in self.lossfuncs['val']])
+        self.val_loss = compose(*[scale_loss(**loss) for loss in self.lossfuncs['val']])
 
     def forward(self, srcs, refs):
         results_dict = self.model(srcs, refs)
@@ -25,10 +27,9 @@ class BaseTrainer(pl.LightningModule):
 
         stage_name = self.loss_map[optmizer_idx]
         loss_dict = self.train_losses[stage_name](**model_output)
-
-        # loss postprocessing
         totalloss = sum(loss_dict.values())
         loss_dict["loss"] = totalloss
+        loss_dict[f"loss_{stage_name}"] = totalloss
         # TODO Needed?
         #loss_dict.update(media_dict)
 
@@ -43,12 +44,12 @@ class BaseTrainer(pl.LightningModule):
             self.log("train/total_discriminator_loss", totalloss)
         for k, v in loss_dict.items():
             if "loss_" in k:
-                self.log("{train}/k", v)
+                self.log(f"train/{k}", v)
         return loss_dict
 
     def validation_step(self, batch, batch_idx):
         model_output = self.model(**batch)
-        loss_dict = self.val_lossfunc(**model_output)
+        loss_dict = self.val_loss(**model_output)
         for k, v in loss_dict.items():
             if "loss_" in k:
                 self.log("valid/{k}", v)
