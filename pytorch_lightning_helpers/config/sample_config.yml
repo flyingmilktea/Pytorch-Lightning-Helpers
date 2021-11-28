@@ -1,0 +1,173 @@
+project_name: Nansy
+last_ckpt: /nfs/node3/abby/ckpts/sr_ckpt/sr_speakerloss/last.ckpt
+ckpt_path: ./ckpts/ # the folder that save ckpt to
+clf_ckpt: /mnt/home/robin/code/speech_resynthesis/speech_resynthesis/model000000250.model
+
+batch_size: 8
+num_workers: 4
+
+log_figure_step: 100
+every_n_train_steps: 500 # save ckpt
+save_on_train_epoch_end: True
+
+val_check_interval: 0.1 # when training, when it do validation
+limit_val_batches: 0.05 # validation size
+limit_train_batches: 1.0 # train size
+split: true
+
+dataloader_callback: !new:speech_resynthesis.scheduler.SwitchDataLoaderScheduler
+  max_epoch_each_stage: [1,1,50]
+
+dm_stage1:
+  # Use same single utterance as input and target #description of this dm
+  dataset: !new:speech_resynthesis.data.dataloader.SpeechResynthesisDataset
+    dataset: !ref <smalldataset[train]> #use on self generated dataset
+    _load_datapath: !name:speech_resynthesis.data.utils.load_1on2_datapath
+    _load_data: !name:speech_resynthesis.data.utils._load_1on1_data
+  shuffle: True
+  batch_size: !ref <batch_size>
+  num_workers: !ref <num_workers>
+  collate_fn: !name:speech_resynthesis.data.dataloader.collate_batch
+
+valdm:
+  dataset: !new:speech_resynthesis.data.dataloader.SpeechResynthesisDataset
+    dataset: !ref <dataset[validation]> #use on self generated dataset
+    _load_datapath: !name:speech_resynthesis.data.utils.load_1on2_datapath
+    _load_data: !name:speech_resynthesis.data.utils._load_1onmany_data
+      concat: 4
+      include: false
+  shuffle: True
+  batch_size: 3
+  num_workers: 5
+  collate_fn: !name:speech_resynthesis.data.dataloader.collate_batch
+    split: false
+
+
+dm: !new:speech_resynthesis.data.dataloader.SRDataModule
+  traindms:
+    - !ref <dm_stage1>
+  val: !ref <valdm>
+  
+
+model: !new:speech_resynthesis.trainer.SpeechResynthesis
+  sr_model: !ref <srmodel>
+  config_opt: !ref <config_optimizers>
+  lossfuncs: !ref <optimizer_losses>
+  clf_model_path: !ref <clf_ckpt>
+
+
+srmodel: !new:speech_resynthesis.models.model.SpeechResynthesisModel
+  rnetmodel: !new:speech_resynthesis.models.s2vc.componets.UnetBlock # could be UnetBlock or UnetBlockGR
+    use_bottleneck: false
+
+trainer: !new:pytorch_lightning.Trainer
+  max_epochs: 99999999
+  precision: 16
+  log_every_n_steps: 5
+  val_check_interval: !ref <val_check_interval>
+  limit_train_batches: !ref <limit_train_batches>
+  limit_val_batches: !ref <limit_val_batches>
+  num_sanity_val_steps: 1
+  reload_dataloaders_every_n_epochs: 1
+  resume_from_checkpoint: !ref <last_ckpt>
+  gpus: 1
+  logger: !ref <wandb_logger>
+  callbacks: 
+    - !ref <checkpoint_callback>
+    - !ref <dataloader_callback>
+    - !ref <logger_callback>
+
+
+losses:
+  order:
+    - generator
+    - discriminator
+  train:
+    generator: - loss_fn: !name:speech_resynthesis.loss.s2vc_mel_loss
+                 scale: 1
+               - loss_fn: !name:speech_resynthesis.loss.gen_mel_loss
+                 scale: 45
+               - loss_fn: !name:speech_resynthesis.loss.generator_loss
+                 scale: 1
+               - loss_fn: !name:speech_resynthesis.loss.feature_loss
+                 scale: 1
+               - loss_fn: !name:speech_resynthesis.loss.speaker_clf_loss
+                 scale: 45
+    discriminator: - loss_fn: !name:speech_resynthesis.loss.discriminator_loss
+                     scale: 1
+  val:
+    - loss_fn: !name:speech_resynthesis.loss.gen_mel_loss
+      scale: 45
+
+
+name: !ref <project_name>
+wandb_logger: !new:pytorch_lightning.loggers.WandbLogger
+  id: !ref <name>
+  name: !ref <name>
+  project: !ref <project_name>
+  resume: "auto"
+
+
+dataset:
+  train:
+    - !ref <libritts[perturb_train_100]>
+    - !ref <libritts[perturb_train_360]>
+      #- !ref <libritts[perturb_train_500]>
+  validation:
+    - !ref <libritts[perturb_test_clean]>
+    - !ref <libritts[perturb_test_other]>
+
+smalldataset:
+  train:
+    - !ref <libritts[perturb_train_100]>
+  validation:
+    - !ref <libritts[perturb_test_clean]>
+
+logger_callback: !new:speech_resynthesis.scheduler.LoggerScheduler
+  log_figure_step: !ref <log_figure_step>
+
+checkpoint_callback: !new:pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint
+  monitor: valid/loss
+  dirpath: !ref <ckpt_path>
+  verbose: True
+  mode: min
+  save_last: True
+  save_top_k: 3
+  every_n_train_steps: !ref <every_n_train_steps>
+  save_on_train_epoch_end: !ref <save_on_train_epoch_end>
+
+
+libritts:
+  perturb_train_100:
+      wav_path: /mnt/home/opt/dataset/s2vc/resampled/train-clean-100/LibriTTS/train-clean-100
+      w2v_path: /mnt/scratch/abby/perturb_vec/train-clean-100/LibriTTS/train-clean-100
+      mel_path: /mnt/home/opt/dataset/s2vc/ada_input_num_mel_256/mels/train-clean-100/LibriTTS/train-clean-100
+  perturb_train_360:
+      wav_path: /mnt/home/opt/dataset/s2vc/resampled/train-clean-360/LibriTTS/train-clean-360
+      w2v_path: /mnt/scratch/abby/perturb_vec/train-clean-360/LibriTTS/train-clean-360
+      mel_path: /mnt/home/opt/dataset/s2vc/ada_input_num_mel_256/mels/train-clean-360/LibriTTS/train-clean-360
+  perturb_test_clean:
+      wav_path: /mnt/home/opt/dataset/s2vc/resampled/test-clean/LibriTTS/test-clean
+      w2v_path: /mnt/scratch/abby/perturb_vec/test-clean/LibriTTS/test-clean
+      mel_path: /mnt/home/opt/dataset/s2vc/ada_input_num_mel_256/mels/test-clean/LibriTTS/test-clean
+  perturb_test_other:
+      wav_path: /mnt/home/opt/dataset/s2vc/resampled/test-other/LibriTTS/test-other
+      w2v_path: /mnt/scratch/abby/perturb_vec/test-other/LibriTTS/test-other
+      mel_path: /mnt/home/opt/dataset/s2vc/ada_input_num_mel_256/mels/test-other/LibriTTS/test-other
+
+
+
+# configure_optimizers
+config_optimizers:
+  discriminator:
+    discriminator_lr: 0.00005
+    adam_b1: 0.8
+    adam_b2: 0.99
+    warmup_steps: 4000
+    frequency: 1
+  generator:
+    generator_lr: 0.00004
+    adam_b1: 0.8
+    adam_b2: 0.99
+    warmup_steps: 4000
+    frequency: 1

@@ -10,9 +10,11 @@ from pytorch_lightning_helpers.loss import resize_mel, scale_loss
 class BaseTrainer(pl.LightningModule):
     def on_fit_start():
         self.process = compose(*self.process)
-        if hasattr(self, "lossfuncs"):
-            for k, v in self.lossfuncs.items():
-                setattr(self, k, compose(*[scale_loss(**loss) for loss in v]))
+        self.loss_map = self.lossfuncs['order']
+        self.train_losses = {}
+        for name, losses in self.lossfuncs['train'].items():
+            self.train_losses[name] = compose(*[scale_loss(**loss) for loss in losses])
+        self.val_losses = compose(*[scale_loss(**loss) for loss in self.lossfuncs['val']])
 
     def forward(self, srcs, refs):
         results_dict = self.model(srcs, refs)
@@ -21,19 +23,14 @@ class BaseTrainer(pl.LightningModule):
     def training_step(self, batch, batch_idx, optimizer_idx):
         model_output = self.process(**batch, optimizer_idx=optimizer_idx)
 
-        # loss customization -> move to config for selecting loss
-        loss_dict = {}
-        if optimizer_idx == 0:
-            loss_dict.update(self.s2vc_lossfunc(**model_output))
-            loss_dict.update(self.g_lossfunc(**model_output))
-        elif optimizer_idx == 1:
-            loss_dict.update(self.s2vc_lossfunc(**model_output))
-            loss_dict.update(self.d_lossfunc(model_output))
+        stage_name = self.loss_map[optmizer_idx]
+        loss_dict = self.train_losses[stage_name](**model_output)
 
         # loss postprocessing
         totalloss = sum(loss_dict.values())
         loss_dict["loss"] = totalloss
-        loss_dict.update(media_dict)
+        # TODO Needed?
+        #loss_dict.update(media_dict)
 
         # log postprocessing -> new logger
         for key, value in model_output.items():
