@@ -9,14 +9,14 @@ from pytorch_lightning_helpers.loss import resize_mel, scale_loss
 
 class BaseLightningModule(pl.LightningModule):
     def on_fit_start(self):
-        assert hasattr(self, 'process'), "'self.process not defined"
-        assert hasattr(self, 'lossfuncs'), "'self.lossfuncs not defined"
+        assert hasattr(self, "process"), "'self.process not defined"
+        assert hasattr(self, "lossfuncs"), "'self.lossfuncs not defined"
         self.process = compose(*self.process)
-        self.loss_map = self.lossfuncs['order']
+        self.loss_map = self.lossfuncs["order"]
         self.train_losses = {}
-        for name, losses in self.lossfuncs['train'].items():
+        for name, losses in self.lossfuncs["train"].items():
             self.train_losses[name] = compose(*[scale_loss(**loss) for loss in losses])
-        self.val_loss = compose(*[scale_loss(**loss) for loss in self.lossfuncs['val']])
+        self.val_loss = compose(*[scale_loss(**loss) for loss in self.lossfuncs["val"]])
 
     def forward(self, srcs, refs):
         results_dict = self.model(srcs, refs)
@@ -31,7 +31,7 @@ class BaseLightningModule(pl.LightningModule):
         loss_dict["loss"] = totalloss
         loss_dict[f"loss_{stage_name}"] = totalloss
         # TODO Needed?
-        #loss_dict.update(media_dict)
+        # loss_dict.update(media_dict)
 
         # log postprocessing -> new logger
         for key, value in model_output.items():
