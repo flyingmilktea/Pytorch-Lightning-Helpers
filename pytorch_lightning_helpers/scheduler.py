@@ -1,19 +1,10 @@
 #!/usr/bin/env python3
 
 import functools
-import warnings
-
 import pytorch_lightning as pl
-
-warnings.simplefilter(action="ignore", category=FutureWarning)
-
 import torch
-
-torch.backends.cudnn.benchmark = True
 from itertools import accumulate
-
 import pytorch_lightning as pl
-
 
 class DynamicWarmerScheduler(pl.Callback):
     def __init__(

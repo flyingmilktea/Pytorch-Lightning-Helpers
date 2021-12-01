@@ -2,21 +2,31 @@ import argparse
 
 import pytorch_lightning as pl
 from hyperpyyaml import load_hyperpyyaml
-from toolz import compose
+from toolz import curry
 
-from pytorch_lightning_helpers.loss import resize_mel, scale_loss
+from pytorch_lightning_helpers.utils import scale_loss, compose
+import munch
+from loguru import logger
 
 
 class BaseLightningModule(pl.LightningModule):
-    def on_fit_start(self):
-        assert hasattr(self, "process"), "'self.process not defined"
-        assert hasattr(self, "lossfuncs"), "'self.lossfuncs not defined"
-        self.process = compose(*self.process)
+    def __init__(self, process, lossfuncs, modules):
+        super().__init__()
+        self.process = compose(*process)
+        #TODO set self.model for forward
+
+        self.lossfuncs = lossfuncs
         self.loss_map = self.lossfuncs["order"]
         self.train_losses = {}
         for name, losses in self.lossfuncs["train"].items():
             self.train_losses[name] = compose(*[scale_loss(**loss) for loss in losses])
         self.val_loss = compose(*[scale_loss(**loss) for loss in self.lossfuncs["val"]])
+
+        for k, v in modules.items():
+            setattr(self, k, v)
+
+    def set_config(self, config):
+        self.config = munch.munchify(config)
 
     def forward(self, srcs, refs):
         results_dict = self.model(srcs, refs)
@@ -25,8 +35,8 @@ class BaseLightningModule(pl.LightningModule):
     def training_step(self, batch, batch_idx, optimizer_idx):
         model_output = self.process(**batch, optimizer_idx=optimizer_idx)
 
-        stage_name = self.loss_map[optmizer_idx]
-        loss_dict = self.train_losses[stage_name](**model_output)
+        stage_name = self.loss_map[optimizer_idx]
+        loss_dict = self.train_losses[stage_name](**model_output, **batch)
         totalloss = sum(loss_dict.values())
         loss_dict["loss"] = totalloss
         loss_dict[f"loss_{stage_name}"] = totalloss
@@ -34,10 +44,11 @@ class BaseLightningModule(pl.LightningModule):
         # loss_dict.update(media_dict)
 
         # log postprocessing -> new logger
+        """
         for key, value in model_output.items():
             if "_audio" in key or "_graph" in key:
                 media_dict[key] = value
-        media_dict.update(resize_mel(**model_output))
+        #media_dict.update(resize_mel(**model_output))
         if optimizer_idx == 0:
             self.log("train/total_generator_loss", totalloss)
         elif optimizer_idx == 1:
@@ -45,11 +56,12 @@ class BaseLightningModule(pl.LightningModule):
         for k, v in loss_dict.items():
             if "loss_" in k:
                 self.log(f"train/{k}", v)
+        """
         return loss_dict
 
     def validation_step(self, batch, batch_idx):
-        model_output = self.model(**batch)
-        loss_dict = self.val_loss(**model_output)
+        model_output = self.process(**batch)
+        loss_dict = self.val_loss(**model_output, **batch)
         for k, v in loss_dict.items():
             if "loss_" in k:
                 self.log("valid/{k}", v)
@@ -66,6 +78,7 @@ def main(config_file, name=None):
     dm = loaded_yaml["dm"]
     trainer = loaded_yaml["trainer"]
     model = loaded_yaml["model"]
+    model.set_config(loaded_yaml)
 
     if loaded_yaml["load_optimizer"]:
         trainer.fit(model, dm, ckpt_path=loaded_yaml["last_ckpt"])

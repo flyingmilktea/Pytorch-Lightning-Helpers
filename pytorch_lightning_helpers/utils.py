@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+
+def compose(*funcs):
+    def f(**kwargs):
+        ret = {}
+        for f in funcs:
+            ret.update(f(**ret, **kwargs))
+        return ret
+    return f
+
+
+def scale_loss(loss_fn, scale):
+    return lambda **kwargs: {k: v * scale for (k, v) in loss_fn(**kwargs).items()}
+
+
+class NoamLR(_LRScheduler):
+    """
+    Implements the Noam Learning rate schedule. This corresponds to increasing the learning rate
+    linearly for the first ``warmup_steps`` training steps, and decreasing it thereafter proportionally
+    to the inverse square root of the step number, scaled by the inverse square root of the
+    dimensionality of the model. Time will tell if this is just madness or it's actually important.
+    Parameters
+    ----------
+    warmup_steps: ``int``, required.
+        The number of steps to linearly increase the learning rate.
+    """
+
+    def __init__(self, optimizer, warmup_steps):
+        self.warmup_steps = warmup_steps
+        super().__init__(optimizer)
+
+    def get_lr(self):
+        last_epoch = max(1, self.last_epoch)
+        scale = self.warmup_steps ** 0.5 * min(
+            last_epoch ** (-0.5), last_epoch * self.warmup_steps ** (-1.5)
+        )
+        return [base_lr * scale for base_lr in self.base_lrs]
