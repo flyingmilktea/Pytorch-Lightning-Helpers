@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import functools
-import pytorch_lightning as pl
-import torch
 from itertools import accumulate
+
 import pytorch_lightning as pl
+
 
 class DynamicWarmerScheduler(pl.Callback):
     def __init__(

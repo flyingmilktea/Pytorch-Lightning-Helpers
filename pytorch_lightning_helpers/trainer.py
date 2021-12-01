@@ -1,19 +1,17 @@
 import argparse
 
+import munch
 import pytorch_lightning as pl
 from hyperpyyaml import load_hyperpyyaml
-from toolz import curry
 
-from pytorch_lightning_helpers.utils import scale_loss, compose
-import munch
-from loguru import logger
+from pytorch_lightning_helpers.utils import compose, scale_loss
 
 
 class BaseLightningModule(pl.LightningModule):
     def __init__(self, process, lossfuncs, modules):
         super().__init__()
         self.process = compose(*process)
-        #TODO set self.model for forward
+        # TODO set self.model for forward
 
         self.lossfuncs = lossfuncs
         self.loss_map = self.lossfuncs["order"]
