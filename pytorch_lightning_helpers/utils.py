@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from torch.optim.lr_scheduler import _LRScheduler
+
 
 def compose(*funcs):
     def f(**kwargs):
