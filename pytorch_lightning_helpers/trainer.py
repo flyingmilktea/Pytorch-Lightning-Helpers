@@ -62,7 +62,7 @@ class BaseLightningModule(pl.LightningModule):
         loss_dict = self.val_loss(**model_output, **batch)
         for k, v in loss_dict.items():
             if "loss_" in k:
-                self.log("valid/{k}", v)
+                self.log(f"valid/{k}", v)
         return loss_dict
 
 
