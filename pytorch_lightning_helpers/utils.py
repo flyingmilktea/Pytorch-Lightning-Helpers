@@ -7,7 +7,7 @@ def compose(*funcs):
     def f(**kwargs):
         ret = {}
         for f in funcs:
-            ret.update(f(**ret, **kwargs))
+            ret |= f(**ret, **kwargs)
         return ret
 
     return f

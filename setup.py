@@ -29,6 +29,7 @@ setuptools.setup(
         "wandb",
         "hyperpyyaml",
         "nonechucks@git+https://github.com/flyingmilktea/nonechucks.git@main",
+        "rich",
         "toolz",
     ],
     extras_require={"dev": ["black", "isort", "yq", "autoflake"]},
