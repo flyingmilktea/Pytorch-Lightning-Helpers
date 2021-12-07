@@ -1,6 +1,6 @@
 import pytorch_lightning as pl
-import torch
 import toolz
+import torch
 
 
 class Reporter(pl.Callback):
@@ -22,7 +22,7 @@ class Reporter(pl.Callback):
 
     @torch.no_grad()
     def report(self, name, *args, tag=None, **kwargs):
-        #TODO: solve logged multiple times for multiple optimizer_idx
+        # TODO: solve logged multiple times for multiple optimizer_idx
         args = list(recursive_map(clean_data_type, args))
         kwargs = recursive_valmap(clean_data_type, kwargs)
         if self.pl_module is None:
@@ -51,10 +51,12 @@ class Reporter(pl.Callback):
                     commit=False,
                 )
 
+
 def clean_data_type(data):
     if isinstance(data, torch.Tensor):
         data = data.detach().cpu().numpy()
     return data
+
 
 def recursive_map(func, seq):
     for item in seq:
@@ -64,6 +66,7 @@ def recursive_map(func, seq):
             yield type(item)(recursive_valmap(func, item))
         else:
             yield func(item)
+
 
 def recursive_valmap(func, seq):
     ret = {}
@@ -75,4 +78,3 @@ def recursive_valmap(func, seq):
         else:
             ret[k] = func(item)
     return ret
-

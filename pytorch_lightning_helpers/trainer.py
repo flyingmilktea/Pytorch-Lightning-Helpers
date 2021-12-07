@@ -2,11 +2,11 @@ import argparse
 
 import munch
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import RichModelSummary, RichProgressBar
 from hyperpyyaml import load_hyperpyyaml
+from pytorch_lightning.callbacks import RichModelSummary
 
-from pytorch_lightning_helpers.utils import compose, scale_loss
 from pytorch_lightning_helpers import reporter
+from pytorch_lightning_helpers.utils import compose, scale_loss
 
 
 class BaseLightningModule(pl.LightningModule):
@@ -38,20 +38,19 @@ class BaseLightningModule(pl.LightningModule):
         loss_dict = self.train_losses[stage_name](**model_output, **batch)
 
         loss_dict["loss"] = sum(loss_dict.values())
-        reporter.report_dict({'train/'+k: v for k, v in loss_dict.items()})
-        loss_dict = {k: v.detach() if k != 'loss' else v for k, v in loss_dict.items()}
+        reporter.report_dict({"train/" + k: v for k, v in loss_dict.items()})
+        loss_dict = {k: v.detach() if k != "loss" else v for k, v in loss_dict.items()}
         return loss_dict
 
     def validation_step(self, batch, batch_idx):
         model_output = self.process(**batch)
         loss_dict = self.val_loss(**model_output, **batch)
         loss_dict["loss"] = sum(loss_dict.values())
-        reporter.report_dict({'valid/'+k: v for k, v in loss_dict.items()})
+        reporter.report_dict({"valid/" + k: v for k, v in loss_dict.items()})
         return loss_dict
 
     def configure_callbacks(self):
         return [RichModelSummary(max_depth=3)]
-
 
 
 def main(config_file, name=None):
