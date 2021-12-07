@@ -33,8 +33,9 @@ class MultiStageDataModule(pl.LightningDataModule):
         self.traindms = traindms
         self.valdm = valdm
         if safe:
-            self.traindms = list(map(SafeDataset, self.traindms))
-            self.valdm = SafeDataset(self.valdm)
+            for dm in self.traindms:
+                dm['dataset'] = SafeDataset['dataset']
+            self.valdm['dataset'] = SafeDataset(self.valdm['dataset'])
         self.current_dm = traindms[0]
 
     def train_dataloader(self):
