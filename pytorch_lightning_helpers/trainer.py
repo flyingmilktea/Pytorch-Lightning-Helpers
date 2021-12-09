@@ -7,7 +7,7 @@ from hyperpyyaml import load_hyperpyyaml
 from pytorch_lightning.callbacks import RichModelSummary
 
 from pytorch_lightning_helpers import reporter
-from pytorch_lightning_helpers.utils import compose, scale_loss
+from pytorch_lightning_helpers.utils import compose, build_loss 
 
 
 class BaseLightningModule(pl.LightningModule):
@@ -20,8 +20,8 @@ class BaseLightningModule(pl.LightningModule):
         self.loss_map = self.lossfuncs["order"]
         self.train_losses = {}
         for name, losses in self.lossfuncs["train"].items():
-            self.train_losses[name] = compose(*[scale_loss(**loss) for loss in losses])
-        self.val_loss = compose(*[scale_loss(**loss) for loss in self.lossfuncs["val"]])
+            self.train_losses[name] = compose(*[build_loss(**loss) for loss in losses])
+        self.val_loss = compose(*[build_loss(**loss) for loss in self.lossfuncs["val"]])
 
         for k, v in modules.items():
             setattr(self, k, v)
@@ -42,7 +42,9 @@ class BaseLightningModule(pl.LightningModule):
         stage_name = self.loss_map[optimizer_idx]
 
         model_output = self.process(**batch, optimizer_idx=optimizer_idx)
-        loss_dict = self.train_losses[stage_name](**model_output, **batch)
+        loss_dict = self.train_losses[stage_name](**model_output,
+                                                  **batch,
+                                                  step=self.global_step)
         loss_dict["loss"] = sum(loss_dict.values())
         reporter.report_dict({"train/" + k: v for k, v in loss_dict.items()})
         loss_dict = {k: v.detach() if k != "loss" else v for k, v in loss_dict.items()}
@@ -50,7 +52,9 @@ class BaseLightningModule(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         model_output = self.process(**batch, optimizer_idx=None)
-        loss_dict = self.val_loss(**model_output, **batch)
+        loss_dict = self.val_loss(**model_output,
+                                  **batch,
+                                  step=self.global_step)
         loss_dict["loss"] = sum(loss_dict.values())
         reporter.report_dict({"valid/" + k: v for k, v in loss_dict.items()})
         return loss_dict
