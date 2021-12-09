@@ -3,16 +3,19 @@ import argparse
 import munch
 import pytorch_lightning as pl
 from hyperpyyaml import load_hyperpyyaml
+import torch
 from pytorch_lightning.callbacks import RichModelSummary
+import wandb
 
 from pytorch_lightning_helpers import reporter
 from pytorch_lightning_helpers.utils import compose, scale_loss
 
 
 class BaseLightningModule(pl.LightningModule):
-    def __init__(self, process, lossfuncs, modules):
+    def __init__(self, lossfuncs, modules, process=None):
         super().__init__()
-        self.process = compose(*process)
+        if process is not None:
+            self.process = compose(*process)
 
         self.lossfuncs = lossfuncs
         self.loss_map = self.lossfuncs["order"]
@@ -23,6 +26,9 @@ class BaseLightningModule(pl.LightningModule):
 
         for k, v in modules.items():
             setattr(self, k, v)
+
+    def process(self, optimizer_idx, **kwargs):
+        raise NotImplementedError('process had to be either defined in custom lightning module or passed as a list in config.')
 
     def set_config(self, config):
         self.config = munch.munchify(config)
@@ -36,14 +42,13 @@ class BaseLightningModule(pl.LightningModule):
 
         model_output = self.process(**batch, optimizer_idx=optimizer_idx)
         loss_dict = self.train_losses[stage_name](**model_output, **batch)
-
         loss_dict["loss"] = sum(loss_dict.values())
         reporter.report_dict({"train/" + k: v for k, v in loss_dict.items()})
         loss_dict = {k: v.detach() if k != "loss" else v for k, v in loss_dict.items()}
         return loss_dict
 
     def validation_step(self, batch, batch_idx):
-        model_output = self.process(**batch)
+        model_output = self.process(**batch, optimizer_idx=None)
         loss_dict = self.val_loss(**model_output, **batch)
         loss_dict["loss"] = sum(loss_dict.values())
         reporter.report_dict({"valid/" + k: v for k, v in loss_dict.items()})
@@ -57,8 +62,9 @@ def main(config_file, name=None):
     overrides = {}
     if name is not None:
         overrides["name"] = name
-    with open(config_file) as f:
-        loaded_yaml = load_hyperpyyaml(f, overrides)
+    with torch.no_grad():
+        with open(config_file) as f:
+            loaded_yaml = load_hyperpyyaml(f, overrides)
 
     dm = loaded_yaml["dm"]
     trainer = loaded_yaml["trainer"]
