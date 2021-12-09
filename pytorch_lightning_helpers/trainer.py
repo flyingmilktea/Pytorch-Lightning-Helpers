@@ -2,10 +2,9 @@ import argparse
 
 import munch
 import pytorch_lightning as pl
-from hyperpyyaml import load_hyperpyyaml
 import torch
+from hyperpyyaml import load_hyperpyyaml
 from pytorch_lightning.callbacks import RichModelSummary
-import wandb
 
 from pytorch_lightning_helpers import reporter
 from pytorch_lightning_helpers.utils import compose, scale_loss
@@ -28,7 +27,9 @@ class BaseLightningModule(pl.LightningModule):
             setattr(self, k, v)
 
     def process(self, optimizer_idx, **kwargs):
-        raise NotImplementedError('process had to be either defined in custom lightning module or passed as a list in config.')
+        raise NotImplementedError(
+            "process had to be either defined in custom lightning module or passed as a list in config."
+        )
 
     def set_config(self, config):
         self.config = munch.munchify(config)
