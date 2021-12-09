@@ -12,12 +12,15 @@ def compose(*funcs):
 
     return f
 
+
 def build_loss(loss_fn, scale=1, start_step=0):
     def loss(step=None, **kwargs):
         if step is not None and step < start_step:
             return {}
         return {k: v * scale for (k, v) in loss_fn(**kwargs).items()}
+
     return loss
+
 
 class NoamLR(_LRScheduler):
     """

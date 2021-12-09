@@ -7,7 +7,7 @@ from hyperpyyaml import load_hyperpyyaml
 from pytorch_lightning.callbacks import RichModelSummary
 
 from pytorch_lightning_helpers import reporter
-from pytorch_lightning_helpers.utils import compose, build_loss
+from pytorch_lightning_helpers.utils import build_loss, compose
 
 
 class BaseLightningModule(pl.LightningModule):
@@ -42,9 +42,9 @@ class BaseLightningModule(pl.LightningModule):
         stage_name = self.loss_map[optimizer_idx]
 
         model_output = self.process(**batch, optimizer_idx=optimizer_idx)
-        loss_dict = self.train_losses[stage_name](**model_output,
-                                                  **batch,
-                                                  step=self.global_step)
+        loss_dict = self.train_losses[stage_name](
+            **model_output, **batch, step=self.global_step
+        )
         if len(loss_dict) == 0:
             return None
         loss_dict["loss"] = sum(loss_dict.values())
@@ -54,9 +54,7 @@ class BaseLightningModule(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         model_output = self.process(**batch, optimizer_idx=None)
-        loss_dict = self.val_loss(**model_output,
-                                  **batch,
-                                  step=self.global_step)
+        loss_dict = self.val_loss(**model_output, **batch, step=self.global_step)
 
         if len(loss_dict) == 0:
             return None
