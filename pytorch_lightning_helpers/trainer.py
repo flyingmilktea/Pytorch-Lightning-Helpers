@@ -43,7 +43,7 @@ class BaseLightningModule(pl.LightningModule):
 
         model_output = self.process(**batch, optimizer_idx=optimizer_idx)
         loss_dict = self.train_losses[stage_name](
-            **model_output, **batch, step=self.global_step
+            **{**batch, **model_output}, step=self.global_step
         )
         if len(loss_dict) == 0:
             return None
@@ -54,7 +54,7 @@ class BaseLightningModule(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         model_output = self.process(**batch, optimizer_idx=None)
-        loss_dict = self.val_loss(**model_output, **batch, step=self.global_step)
+        loss_dict = self.val_loss(**{**batch, **model_output}, step=self.global_step)
 
         if len(loss_dict) == 0:
             return None

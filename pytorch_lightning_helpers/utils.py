@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 from torch.optim.lr_scheduler import _LRScheduler
+from loguru import logger
 
 
 def compose(*funcs):
     def f(**kwargs):
         ret = {}
         for f in funcs:
-            ret |= f(**ret, **kwargs)
+            ret |= f(**{**kwargs, **ret})
         return ret
 
     return f
