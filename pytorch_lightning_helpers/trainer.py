@@ -85,9 +85,9 @@ def main(config_file, name=None):
     else:
         model.load_from_checkpoint(
             loaded_yaml["last_ckpt"],
-            process=loaded_yaml['process'],
-            lossfuncs=loaded_yaml['losses'],
-            modules=loaded_yaml['modules'],
+            process=loaded_yaml["process"],
+            lossfuncs=loaded_yaml["losses"],
+            modules=loaded_yaml["modules"],
             strict=False,
         )
         trainer.fit(model, dm)
