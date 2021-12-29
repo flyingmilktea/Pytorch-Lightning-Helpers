@@ -1,0 +1,122 @@
+project_name: !PLACEHOLDER
+last_ckpt: !PLACEHOLDER
+ckpt_path: !PLACEHOLDER # the folder that save ckpt to
+
+# Training Parameter
+load_optimizer: True # For control whether reload the optimizer: true for resume, false for init 
+
+batch_size: 8 # for dm
+num_workers: 32 # for dm
+
+every_n_train_steps: 500 # save ckpt
+save_on_train_epoch_end: True
+
+val_check_interval: 0.1 # when training, when it do validation
+limit_val_batches: 0.05 # validation size
+limit_train_batches: 1.0 # train size
+
+
+# ! Training Model
+model: !new:nansy.trainer.NansyLightningModule
+  process: [!ref <componet1>, !ref <componet2>...] #optional (def process list here or process func in Lightning Module)
+  lossfuncs: !ref <losses>
+  modules: !ref <modules>
+
+# ! Training Loss
+losses:
+  order:
+    - partA
+    - partB
+    ...
+  train:
+    partA: 
+      - loss_fn: !name:xxxloss
+        scale: 1
+      - loss_fn: !name:xxxloss
+        scale: 2
+      ...
+    partB: 
+      - loss_fn: !name:xxxloss
+        scale: 1
+      ...
+  val:
+    - loss_fn: !name:xxxloss
+      scale: 1
+
+# ! Training Model Componet
+modules:
+  componet1: !new:...
+  componet2: !new:...
+  componet3: !new:...
+
+# ! DataModules
+dm_stage1:
+  dataset: !new:pytorch_lightning_helpers.data.StatelessDataset
+    dataset: !ref <dataset[train]> #use on self generated dataset
+    ...
+
+valdm:
+  dataset: !new:pytorch_lightning_helpers.data.StatelessDataset
+    dataset: !ref <dataset[validation]> #use on self generated dataset
+    ...
+
+dm: !new:pytorch_lightning_helpers.data.MultiStageDataModule
+  traindms:
+    - !ref <dm_stage1>
+    ...
+  valdm: !ref <valdm>
+  safe: True
+
+# ! Dataset
+DataBase: !include:database.yml
+dataset:
+  train:
+    - !ref <DataBase[train1]>
+    - !ref <DataBase[train2]>
+    ...
+  validation:
+    - !ref <DataBase[val1]>
+    - !ref <DataBase[val2]>
+    ...
+
+# ! Pytorch Lightning Trainer
+trainer: !new:pytorch_lightning.Trainer
+  max_epochs: 99999999
+  precision: 16
+  log_every_n_steps: 5
+  val_check_interval: !ref <val_check_interval>
+  limit_val_batches: !ref <limit_val_batches>
+  limit_train_batches: !ref <limit_train_batches>
+  num_sanity_val_steps: 1
+  reload_dataloaders_every_n_epochs: 1
+  resume_from_checkpoint: !ref <last_ckpt>
+  detect_anomaly: False
+  gpus: 1
+  logger: !ref <wandb_logger>
+  callbacks: 
+    - !ref <checkpoint_callback>
+    ...
+
+# ! Logger (Wandb)
+name: !ref <project_name>
+wandb_logger: !new:pytorch_lightning.loggers.WandbLogger
+  id: !ref <name>
+  name: !ref <name>
+  project: !ref <project_name>
+  resume: "auto"
+
+# ! Callbacks
+checkpoint_callback: !new:pytorch_lightning.callbacks.model_checkpoint.ModelCheckpoint
+  monitor: valid/loss
+  dirpath: !ref <ckpt_path>/<name>
+  verbose: True
+  mode: min
+  save_last: True
+  save_top_k: 3
+  every_n_train_steps: !ref <every_n_train_steps>
+  save_on_train_epoch_end: !ref <save_on_train_epoch_end>
+
+# ! Configure Optimizers
+config_optimizers:
+  ...
+
