@@ -53,12 +53,20 @@ modules:
 dm_stage1:
   dataset: !new:pytorch_lightning_helpers.data.StatelessDataset
     dataset: !ref <dataset[train]> #use on self generated dataset
-    ...
+    _load_datapath: # function to load each filepath under folder path
+    _load_data: # function to load data from filepath
+  batch_size: !ref <batch_size>
+  num_workers: !ref <num_workers>
+  collate_fn:
 
 valdm:
   dataset: !new:pytorch_lightning_helpers.data.StatelessDataset
     dataset: !ref <dataset[validation]> #use on self generated dataset
-    ...
+    _load_datapath: # function to load each filepath under folder path
+    _load_data: # function to load data from filepath
+  batch_size: !ref <batch_size>
+  num_workers: !ref <num_workers>
+  collate_fn: 
 
 dm: !new:pytorch_lightning_helpers.data.MultiStageDataModule
   traindms:
