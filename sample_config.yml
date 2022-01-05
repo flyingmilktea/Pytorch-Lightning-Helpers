@@ -1,6 +1,7 @@
 project_name: !PLACEHOLDER
 last_ckpt: !PLACEHOLDER
 ckpt_path: !PLACEHOLDER # the folder that save ckpt to
+name: !PLACEHOLDER # name of run
 
 # Training Parameter
 load_optimizer: True # For control whether reload the optimizer: true for resume, false for init 
@@ -106,7 +107,6 @@ trainer: !new:pytorch_lightning.Trainer
     ...
 
 # ! Logger (Wandb)
-name: !ref <project_name>
 wandb_logger: !new:pytorch_lightning.loggers.WandbLogger
   id: !ref <name>
   name: !ref <name>

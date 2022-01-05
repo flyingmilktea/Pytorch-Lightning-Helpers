@@ -70,8 +70,6 @@ def main(config_file, name=None):
     with torch.no_grad():
         with open(config_file) as f:
             loaded_yaml = load_hyperpyyaml(f)
-    if name is not None:
-        loaded_yaml["name"] = name
     dm = loaded_yaml["dm"]
     trainer = loaded_yaml["trainer"]
     model = loaded_yaml["model"]
