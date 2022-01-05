@@ -54,7 +54,7 @@ class Reporter(pl.Callback):
 
 def clean_data_type(data):
     if isinstance(data, torch.Tensor):
-        data = data.detach().cpu().numpy()
+        data = data.detach().cpu()
     return data
 
 
