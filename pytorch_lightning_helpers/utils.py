@@ -44,3 +44,15 @@ class NoamLR(_LRScheduler):
             last_epoch ** (-0.5), last_epoch * self.warmup_steps ** (-1.5)
         )
         return [base_lr * scale for base_lr in self.base_lrs]
+
+    def state_dict(self):
+        # Override so that we can change the lr on resume
+        return {
+            key: value
+            for key, value in self.__dict__.items()
+            if key not in ["optimizer", "base_lrs"]
+        }
+
+    def load_state_dict(self, state_dict):
+        # Override so that we can change the lr on resume
+        self.__dict__.update({k: v for k, v in state_dict.items() if k != "base_lrs"})
