@@ -11,7 +11,7 @@ from pytorch_lightning_helpers.utils import build_loss, compose
 
 
 class BaseLightningModule(pl.LightningModule):
-    def __init__(self, modules, process=None, lossfuncs = None):
+    def __init__(self, modules, process=None, lossfuncs=None):
         super().__init__()
         if process is not None:
             self.process = compose(*process)
@@ -20,8 +20,12 @@ class BaseLightningModule(pl.LightningModule):
             self.loss_map = self.lossfuncs["order"]
             self.train_losses = {}
             for name, losses in self.lossfuncs["train"].items():
-                self.train_losses[name] = compose(*[build_loss(**loss) for loss in losses])
-            self.val_loss = compose(*[build_loss(**loss) for loss in self.lossfuncs["val"]])
+                self.train_losses[name] = compose(
+                    *[build_loss(**loss) for loss in losses]
+                )
+            self.val_loss = compose(
+                *[build_loss(**loss) for loss in self.lossfuncs["val"]]
+            )
 
         for k, v in modules.items():
             setattr(self, k, v)
