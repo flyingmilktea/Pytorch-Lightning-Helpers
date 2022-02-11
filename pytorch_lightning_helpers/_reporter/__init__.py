@@ -9,6 +9,7 @@ class Reporter(pl.Callback):
         self.trainer = None
         self.pl_module = None
         self.logging_disabled = False
+        self.stage = None
 
     def on_fit_start(self, trainer, pl_module):
         self.trainer = trainer
@@ -32,12 +33,8 @@ class Reporter(pl.Callback):
         kwargs = recursive_valmap(clean_data_type, kwargs)
         if tag not in self.write_fns:
             self.pl_module.log(name, *args, **kwargs),
-        elif self.trainer.global_step % self.trainer.log_every_n_steps == 0:
-            self.pl_module.logger.experiment.log(
-                {name: self.write_fns[tag](*args, **kwargs)},
-                step=self.trainer.global_step,
-                commit=False,
-            )
+        elif self.trainer.global_step % self.trainer.log_every_n_steps == 0 or self.stage=='val':
+            self.log_media_to_wandb(name, *args, tag=tag, **kwargs)
 
     @torch.no_grad()
     def report_dict(self, kwargs_dict, *, tag=None):
@@ -47,21 +44,31 @@ class Reporter(pl.Callback):
             return
         if tag not in self.write_fns:
             self.pl_module.log_dict(kwargs_dict)
-        elif self.trainer.global_step % self.trainer.log_every_n_steps == 0:
+        elif self.trainer.global_step % self.trainer.log_every_n_steps == 0 or self.stage=='val':
             for name, kwargs in kwargs_dict.items():
                 kwargs = toolz.valmap(clean_data_type, kwargs)
-                self.pl_module.logger.experiment.log(
-                    {name: self.write_fns[tag](**kwargs)},
-                    step=self.trainer.global_step,
-                    commit=False,
-                )
+                self.log_media_to_wandb(name, tag=tag, **kwargs)
+
+    def log_media_to_wandb(self, name, *args, tag, **kwargs):
+        if self.stage == 'val':
+            name = f'val_{name}'
+        self.pl_module.logger.experiment.log(
+            {name: self.write_fns[tag](*args, **kwargs)},
+            step=self.trainer.global_step,
+            commit=False,
+        )
+
     def on_sanity_check_start(self, *args, **kwargs):
         self.logging_disabled = True
 
     def on_sanity_check_end(self, *args, **kwargs):
         self.logging_disabled = False
 
+    def on_validation_epoch_start(self, *args, **kwargs):
+        self.stage = 'val'
 
+    def on_train_batch_start(self, *args, **kwargs):
+        self.stage = 'train'
 
 def clean_data_type(data):
     if isinstance(data, torch.Tensor):
