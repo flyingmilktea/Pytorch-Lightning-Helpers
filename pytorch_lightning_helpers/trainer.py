@@ -80,7 +80,7 @@ def main(config_file, name=None):
     model.set_config(loaded_yaml)
     trainer.callbacks.append(reporter)
 
-    if loaded_yaml["load_optimizer"]:
+    if loaded_yaml["load_optimizer"] or loaded_yaml["last_ckpt"] is None:
         trainer.fit(model, dm, ckpt_path=loaded_yaml["last_ckpt"])
     else:
         model.load_from_checkpoint(
