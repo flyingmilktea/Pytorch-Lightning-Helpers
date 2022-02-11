@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 from torch.optim.lr_scheduler import _LRScheduler
 
 
@@ -50,7 +49,7 @@ class NoamLR(_LRScheduler):
         return {
             key: value
             for key, value in self.__dict__.items()
-            if key not in ["optimizer", "base_lrs"]
+            if key not in ["base_lrs"]
         }
 
     def load_state_dict(self, state_dict):
