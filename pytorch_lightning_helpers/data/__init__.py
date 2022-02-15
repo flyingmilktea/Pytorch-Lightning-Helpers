@@ -7,8 +7,8 @@ from nonechucks import SafeDataset
 from torch.utils.data import DataLoader, Dataset
 
 
-class StatelessDataset(Dataset):
-    """Dataset for stateless loading.
+class StatefulDataset(Dataset):
+    """Dataset for stateful loading.
     Counter examples include speaker embedder and mel-scale matrix
     """
 
@@ -16,7 +16,7 @@ class StatelessDataset(Dataset):
         self.datalist = []
         self._load_data = _load_data
         for i in dataset:
-            self.datalist.extend(_load_datapath(**i))
+            self.datalist.extend(_load_datapath(self, **i))
 
     def __len__(self):
         return len(self.datalist)
