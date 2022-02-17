@@ -36,7 +36,7 @@ class Reporter(pl.Callback):
             self.pl_module.log(name, *args, **kwargs),
         elif (
             self.trainer.global_step % self.trainer.log_every_n_steps == 0
-            or self.stage == 'val'
+            or self.stage == "val"
         ):
             args = list(recursive_map(clean_data_type, args))
             kwargs = recursive_valmap(clean_data_type, kwargs)
@@ -52,7 +52,7 @@ class Reporter(pl.Callback):
             self.pl_module.log_dict(kwargs_dict)
         elif (
             self.trainer.global_step % self.trainer.log_every_n_steps == 0
-            or self.stage == 'val'
+            or self.stage == "val"
         ):
             for name, kwargs in kwargs_dict.items():
                 kwargs = toolz.valmap(clean_data_type, kwargs)
