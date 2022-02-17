@@ -36,12 +36,11 @@ class Reporter(pl.Callback):
             self.pl_module.log(name, *args, **kwargs),
         elif (
             self.trainer.global_step % self.trainer.log_every_n_steps == 0
-            or self.val_first_batch
+            or self.stage == 'val'
         ):
             args = list(recursive_map(clean_data_type, args))
             kwargs = recursive_valmap(clean_data_type, kwargs)
             self.log_media_to_wandb(name, *args, tag=tag, **kwargs)
-            self.val_first_batch = False
 
     @torch.no_grad()
     def report_dict(self, kwargs_dict, *, tag=None):
@@ -53,7 +52,7 @@ class Reporter(pl.Callback):
             self.pl_module.log_dict(kwargs_dict)
         elif (
             self.trainer.global_step % self.trainer.log_every_n_steps == 0
-            or self.val_first_batch
+            or self.stage == 'val'
         ):
             for name, kwargs in kwargs_dict.items():
                 kwargs = toolz.valmap(clean_data_type, kwargs)
@@ -74,12 +73,20 @@ class Reporter(pl.Callback):
     def on_sanity_check_end(self, *args, **kwargs):
         self.logging_disabled = False
 
+    def on_validation_batch_start(self, batch_idx, *args, **kwargs):
+        if self.val_first_batch:
+            self.logging_disabled = False
+            self.val_first_batch = False
+        else:
+            self.logging_disabled = True
+
     def on_validation_epoch_start(self, *args, **kwargs):
         self.stage = "val"
         self.val_first_batch = True
 
     def on_train_batch_start(self, *args, **kwargs):
         self.stage = "train"
+        self.logging_disabled = False
 
 
 def clean_data_type(data):
