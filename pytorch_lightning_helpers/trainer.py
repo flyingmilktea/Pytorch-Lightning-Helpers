@@ -1,17 +1,17 @@
 import argparse
 import os
+
+import hydra
 import munch
 import pytorch_lightning as pl
 import torch
-from hyperpyyaml import load_hyperpyyaml
+from hydra.utils import instantiate
+from loguru import logger
+from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.callbacks import RichModelSummary
 
 from pytorch_lightning_helpers import reporter
 from pytorch_lightning_helpers.utils import build_loss, compose
-from omegaconf import DictConfig, OmegaConf
-import hydra
-from hydra.utils import instantiate
-from loguru import logger
 
 
 class BaseLightningModule(pl.LightningModule):
@@ -72,6 +72,7 @@ class BaseLightningModule(pl.LightningModule):
 
     def configure_callbacks(self):
         return [RichModelSummary(max_depth=3)]
+
 
 @hydra.main(config_path=os.getcwd() + "/configs", config_name="config")
 def main(cfg: DictConfig):
