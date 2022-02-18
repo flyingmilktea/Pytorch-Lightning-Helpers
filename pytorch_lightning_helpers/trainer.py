@@ -1,4 +1,3 @@
-import argparse
 import os
 
 import hydra
@@ -97,6 +96,7 @@ def main(cfg: DictConfig):
             strict=False,
         )
         trainer.fit(model, dm)
+
 
 if __name__ == "__main__":
     main()
