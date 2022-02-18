@@ -98,14 +98,5 @@ def main(cfg: DictConfig):
         )
         trainer.fit(model, dm)
 
-
-def parse_args():
-    """Parse command-line arguments."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("config_file", type=str)
-    parser.add_argument("--name", "-n", default=None, type=str)
-    return vars(parser.parse_args())
-
-
 if __name__ == "__main__":
     main()
