@@ -31,6 +31,7 @@ setuptools.setup(
         "nonechucks@git+https://github.com/flyingmilktea/nonechucks.git@main",
         "rich",
         "toolz",
+        "hydra-core@git+https://github.com/facebookresearch/hydra.git@1.1_branch"
     ],
     extras_require={"dev": ["black", "isort", "yq", "autoflake"]},
 )
