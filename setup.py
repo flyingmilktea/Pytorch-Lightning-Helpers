@@ -24,7 +24,7 @@ setuptools.setup(
         "loguru",
         "numpy",
         "munch",
-        "pytorch_lightning",
+        "pytorch_lightning<=1.5.6",  # bug workaround https://github.com/PyTorchLightning/pytorch-lightning/issues/11379",
         "argparse",
         "wandb",
         "hyperpyyaml",
