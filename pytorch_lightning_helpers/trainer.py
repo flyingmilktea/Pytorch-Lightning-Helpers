@@ -1,9 +1,12 @@
-import argparse
+import os
 
+import hydra
 import munch
 import pytorch_lightning as pl
 import torch
-from hyperpyyaml import load_hyperpyyaml
+from hydra.utils import instantiate
+from loguru import logger
+from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.callbacks import RichModelSummary
 
 from pytorch_lightning_helpers import reporter
@@ -70,36 +73,30 @@ class BaseLightningModule(pl.LightningModule):
         return [RichModelSummary(max_depth=3)]
 
 
-def main(config_file, name=None):
+@hydra.main(config_path=os.getcwd() + "/configs", config_name="config")
+def main(cfg: DictConfig):
+    OmegaConf.register_new_resolver("get_method", hydra.utils.get_method)
     with torch.no_grad():
-        with open(config_file) as f:
-            loaded_yaml = load_hyperpyyaml(f)
-    dm = loaded_yaml["dm"]
-    trainer = loaded_yaml["trainer"]
-    model = loaded_yaml["model"]
-    model.set_config(loaded_yaml)
+        loaded_yaml = OmegaConf.to_yaml(cfg, resolve=True)
+    logger.debug(loaded_yaml)
+    dm = instantiate(cfg.dm)
+    trainer = instantiate(cfg.trainer)
+    model = instantiate(cfg.model)
+    model.set_config(cfg)
     trainer.callbacks.append(reporter)
 
-    if loaded_yaml["load_optimizer"] or loaded_yaml["last_ckpt"] is None:
-        trainer.fit(model, dm, ckpt_path=loaded_yaml["last_ckpt"])
+    if cfg.load_optimizer or cfg.last_ckpt is None:
+        trainer.fit(model, dm, ckpt_path=cfg.last_ckpt)
     else:
         model.load_from_checkpoint(
-            loaded_yaml["last_ckpt"],
-            process=loaded_yaml["process"],
-            lossfuncs=loaded_yaml["losses"],
-            modules=loaded_yaml["modules"],
+            cfg.last_ckpt,
+            process=cfg.process,
+            lossfuncs=cfg.losses,
+            modules=cfg.modules,
             strict=False,
         )
         trainer.fit(model, dm)
 
 
-def parse_args():
-    """Parse command-line arguments."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("config_file", type=str)
-    parser.add_argument("--name", "-n", default=None, type=str)
-    return vars(parser.parse_args())
-
-
 if __name__ == "__main__":
-    main(**parse_args())
+    main()
