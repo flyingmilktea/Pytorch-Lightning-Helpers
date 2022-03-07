@@ -74,7 +74,6 @@ class BaseLightningModule(pl.LightningModule):
 
 @hydra.main(config_path=os.getcwd() + "/configs", config_name="config")
 def main(cfg: DictConfig):
-    OmegaConf.register_new_resolver("get_method", hydra.utils.get_method)
     os.chdir(hydra.utils.get_original_cwd())
     with torch.no_grad():
         loaded_yaml = OmegaConf.to_yaml(cfg, resolve=True)
@@ -99,4 +98,5 @@ def main(cfg: DictConfig):
 
 
 if __name__ == "__main__":
+    OmegaConf.register_new_resolver("get_method", hydra.utils.get_method)
     main()
