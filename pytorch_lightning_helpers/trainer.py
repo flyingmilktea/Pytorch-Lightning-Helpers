@@ -1,5 +1,4 @@
 import os
-
 import hydra
 import munch
 import pytorch_lightning as pl
@@ -76,9 +75,10 @@ class BaseLightningModule(pl.LightningModule):
 @hydra.main(config_path=os.getcwd() + "/configs", config_name="config")
 def main(cfg: DictConfig):
     OmegaConf.register_new_resolver("get_method", hydra.utils.get_method)
+    os.chdir(hydra.utils.get_original_cwd())
     with torch.no_grad():
         loaded_yaml = OmegaConf.to_yaml(cfg, resolve=True)
-    logger.debug(loaded_yaml)
+    #logger.debug(loaded_yaml)
     dm = instantiate(cfg.dm)
     trainer = instantiate(cfg.trainer)
     model = instantiate(cfg.model)
