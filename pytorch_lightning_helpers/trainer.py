@@ -80,20 +80,22 @@ def main(cfg: DictConfig):
     # logger.debug(loaded_yaml)
     dm = instantiate(cfg.dm)
     trainer = instantiate(cfg.trainer)
-    model = instantiate(cfg.model)
-    model.set_config(cfg)
     trainer.callbacks.append(reporter)
 
     if cfg.load_optimizer or cfg.last_ckpt is None:
+        model = instantiate(cfg.model)
+        model.set_config(cfg)
         trainer.fit(model, dm, ckpt_path=cfg.last_ckpt)
     else:
-        model.load_from_checkpoint(
+        model = hydra.utils.get_method(cfg.model['_target_'])
+        model = model.load_from_checkpoint(
             cfg.last_ckpt,
-            process=cfg.process,
-            lossfuncs=cfg.losses,
-            modules=cfg.modules,
+            process=instantiate(cfg.process),
+            lossfuncs=instantiate(cfg.losses),
+            modules=instantiate(cfg.modules),
             strict=False,
         )
+        model.set_config(cfg)
         trainer.fit(model, dm)
 
 
