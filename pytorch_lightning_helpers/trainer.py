@@ -87,7 +87,7 @@ def main(cfg: DictConfig):
         model.set_config(cfg)
         trainer.fit(model, dm, ckpt_path=cfg.last_ckpt)
     else:
-        model = hydra.utils.get_method(cfg.model['_target_'])
+        model = hydra.utils.get_method(cfg.model["_target_"])
         model = model.load_from_checkpoint(
             cfg.last_ckpt,
             process=instantiate(cfg.process),
