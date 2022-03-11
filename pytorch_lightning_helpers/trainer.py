@@ -4,10 +4,10 @@ import hydra
 import munch
 import pytorch_lightning as pl
 import torch
+import wandb
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.callbacks import RichModelSummary
-import wandb
 
 from pytorch_lightning_helpers import reporter
 from pytorch_lightning_helpers.utils import build_loss, compose
@@ -83,7 +83,10 @@ def main(cfg: DictConfig):
     model.set_config(cfg)
     trainer.callbacks.append(reporter)
     wandb.init()
-    os.symlink(os.path.abspath(".hydra/config.yaml"), os.path.join(wandb.run.dir, "hydra-config.yaml"))
+    os.symlink(
+        os.path.abspath(".hydra/config.yaml"),
+        os.path.join(wandb.run.dir, "hydra-config.yaml"),
+    )
     wandb.save("hydra-config.yaml")
 
     if cfg.load_optimizer or cfg.last_ckpt is None:

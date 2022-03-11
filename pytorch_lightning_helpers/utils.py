@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from torch.optim.lr_scheduler import _LRScheduler
-import functools
-from hydra.utils import get_method
+
 
 def compose(*funcs):
     def f(**kwargs):
@@ -56,5 +55,3 @@ class NoamLR(_LRScheduler):
     def load_state_dict(self, state_dict):
         # Override so that we can change the lr on resume
         self.__dict__.update({k: v for k, v in state_dict.items() if k != "base_lrs"})
-
-
