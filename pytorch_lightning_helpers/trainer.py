@@ -79,8 +79,6 @@ def main(cfg: DictConfig):
     with torch.no_grad():
         dm = instantiate(cfg.data_module.dm)
         trainer = instantiate(cfg.trainer)
-        model = instantiate(cfg.model)
-    model.set_config(cfg)
     trainer.callbacks.append(reporter)
     wandb.init()
     os.symlink(
