@@ -4,10 +4,8 @@ import hydra
 import munch
 import pytorch_lightning as pl
 import torch
-import wandb
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
-import pytorch_lightning as pl
 from pytorch_lightning.callbacks import RichModelSummary
 
 from pytorch_lightning_helpers import reporter
@@ -76,13 +74,13 @@ class BaseLightningModule(pl.LightningModule):
 
 @hydra.main(config_path=os.getcwd() + "/configs", config_name="config")
 def main(cfg: DictConfig):
-    '''
+    """
     os.symlink(
         os.path.abspath(".hydra/config.yaml"),
         os.path.join(wandb.run.dir, "hydra-config.yaml"),
     )
     wandb.save("hydra-config.yaml")
-    '''
+    """
 
     os.chdir(hydra.utils.get_original_cwd())
     pl.utilities.seed.seed_everything(42, workers=True)
