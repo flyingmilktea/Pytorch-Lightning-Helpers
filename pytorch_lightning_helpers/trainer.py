@@ -75,17 +75,19 @@ class BaseLightningModule(pl.LightningModule):
 
 @hydra.main(config_path=os.getcwd() + "/configs", config_name="config")
 def main(cfg: DictConfig):
-    os.chdir(hydra.utils.get_original_cwd())
-    with torch.no_grad():
-        dm = instantiate(cfg.data_module.dm)
-        trainer = instantiate(cfg.trainer)
-    trainer.callbacks.append(reporter)
-    wandb.init()
+    '''
     os.symlink(
         os.path.abspath(".hydra/config.yaml"),
         os.path.join(wandb.run.dir, "hydra-config.yaml"),
     )
     wandb.save("hydra-config.yaml")
+    '''
+
+    os.chdir(hydra.utils.get_original_cwd())
+    with torch.no_grad():
+        dm = instantiate(cfg.dm)
+        trainer = instantiate(cfg.trainer)
+    trainer.callbacks.append(reporter)
 
     if cfg.load_optimizer or cfg.last_ckpt is None:
         model = instantiate(cfg.model)
