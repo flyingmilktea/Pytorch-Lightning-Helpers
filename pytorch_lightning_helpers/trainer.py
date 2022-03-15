@@ -7,6 +7,7 @@ import torch
 import wandb
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
+import pytorch_lightning as pl
 from pytorch_lightning.callbacks import RichModelSummary
 
 from pytorch_lightning_helpers import reporter
@@ -84,6 +85,7 @@ def main(cfg: DictConfig):
     '''
 
     os.chdir(hydra.utils.get_original_cwd())
+    pl.utilities.seed.seed_everything(42, workers=True)
     with torch.no_grad():
         dm = instantiate(cfg.dm)
         trainer = instantiate(cfg.trainer)
