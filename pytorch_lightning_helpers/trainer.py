@@ -48,6 +48,8 @@ class BaseLightningModule(pl.LightningModule):
         stage_name = self.loss_map[int(optimizer_idx)]
 
         model_output = self.process(**batch, optimizer_idx=optimizer_idx)
+        if model_output is None:
+            return None
         loss_dict = self.train_losses[stage_name](
             **{**batch, **model_output}, step=self.global_step
         )
