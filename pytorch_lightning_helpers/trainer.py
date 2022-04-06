@@ -45,7 +45,7 @@ class BaseLightningModule(pl.LightningModule):
         return results_dict["out"].squeeze().cpu().numpy()
 
     def training_step(self, batch, batch_idx, optimizer_idx=0):
-        stage_name = self.loss_map[optimizer_idx]
+        stage_name = self.loss_map[int(optimizer_idx)]
 
         model_output = self.process(**batch, optimizer_idx=optimizer_idx)
         loss_dict = self.train_losses[stage_name](
