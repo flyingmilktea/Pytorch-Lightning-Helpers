@@ -78,7 +78,7 @@ class BaseLightningModule(pl.LightningModule):
         return loss_dict
 
     def configure_callbacks(self):
-        return [RichModelSummary(max_depth=3)]
+        return [RichModelSummary(max_depth=4)]
 
 
 @hydra.main(config_path=os.getcwd() + "/configs", config_name="config")
