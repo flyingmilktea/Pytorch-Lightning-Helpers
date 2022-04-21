@@ -1,5 +1,4 @@
 import os
-from loguru import logger
 
 import hydra
 import munch
@@ -52,7 +51,7 @@ class BaseLightningModule(pl.LightningModule):
         if model_output is None:
             return None
         loss_dict = self.train_losses[stage_name](
-            **(batch|model_output), step=self.global_step
+            **(batch | model_output), step=self.global_step
         )
         if len(loss_dict) == 0:
             return None
@@ -63,16 +62,18 @@ class BaseLightningModule(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         model_output = self.process(**batch, optimizer_idx=None)
-        loss_dict = self.val_loss(**(batch|model_output), step=self.global_step)
+        loss_dict = self.val_loss(**(batch | model_output), step=self.global_step)
 
         if len(loss_dict) == 0:
             return None
         loss_dict["loss"] = sum(loss_dict.values())
         reporter.report_dict({"valid/" + k: v for k, v in loss_dict.items()})
 
-        if hasattr(self, 'log_eval'):
-            first_data = {k: v[:1] if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
-            model_inference_output = self.forward(first_data|model_output)
+        if hasattr(self, "log_eval"):
+            first_data = {
+                k: v[:1] if isinstance(v, torch.Tensor) else v for k, v in batch.items()
+            }
+            model_inference_output = self.forward(first_data | model_output)
             self.log_eval(batch, model_output, model_inference_output)
 
         return loss_dict
