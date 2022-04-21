@@ -1,4 +1,5 @@
 import os
+from loguru import logger
 
 import hydra
 import munch
@@ -68,6 +69,12 @@ class BaseLightningModule(pl.LightningModule):
             return None
         loss_dict["loss"] = sum(loss_dict.values())
         reporter.report_dict({"valid/" + k: v for k, v in loss_dict.items()})
+
+        if hasattr(self, 'log_eval'):
+            first_data = {k: v[:1] if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+            model_inference_output = self.forward(first_data|model_output)
+            self.log_eval(batch, model_output, model_inference_output)
+
         return loss_dict
 
     def configure_callbacks(self):
