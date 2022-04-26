@@ -57,7 +57,7 @@ class BaseLightningModule(pl.LightningModule):
         if len(loss_dict) == 0:
             return None
         loss_dict["loss"] = sum(map(torch.mean, loss_dict.values()))
-        reporter.report_dict({"train/" + k: torch.mean(v) for k, v in loss_dict.items()})
+        reporter.report_dict({f"train_{stage_name}/" + k: torch.mean(v) for k, v in loss_dict.items()})
         loss_dict = {k: v.detach() if k != "loss" else v for k, v in loss_dict.items()}
         return loss_dict
 
