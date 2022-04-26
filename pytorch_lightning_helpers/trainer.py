@@ -1,6 +1,5 @@
 import os
 
-from loguru import logger
 import hydra
 import munch
 import pytorch_lightning as pl
@@ -57,7 +56,9 @@ class BaseLightningModule(pl.LightningModule):
         if len(loss_dict) == 0:
             return None
         loss_dict["loss"] = sum(map(torch.mean, loss_dict.values()))
-        reporter.report_dict({f"train_{stage_name}/" + k: torch.mean(v) for k, v in loss_dict.items()})
+        reporter.report_dict(
+            {f"train_{stage_name}/" + k: torch.mean(v) for k, v in loss_dict.items()}
+        )
         loss_dict = {k: v.detach() if k != "loss" else v for k, v in loss_dict.items()}
         return loss_dict
 
@@ -68,7 +69,9 @@ class BaseLightningModule(pl.LightningModule):
         if len(loss_dict) == 0:
             return None
         loss_dict["loss"] = sum(map(torch.mean, loss_dict.values()))
-        reporter.report_dict({"valid/" + k: torch.mean(v) for k, v in loss_dict.items()})
+        reporter.report_dict(
+            {"valid/" + k: torch.mean(v) for k, v in loss_dict.items()}
+        )
 
         if hasattr(self, "log_eval") and batch_idx == 0:
             first_data = {
