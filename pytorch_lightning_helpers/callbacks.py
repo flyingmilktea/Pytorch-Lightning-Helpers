@@ -1,4 +1,5 @@
 import csv
+from loguru import logger
 from collections import defaultdict
 from pathlib import Path
 
@@ -99,7 +100,7 @@ class OutlierDetector(Callback):
         log_key,
         start_log=10000,
         stats_momentum=0.992,
-        score_momentum=0.99,
+        score_momentum=0.5,
         sd_threshold=4,
     ):
         super().__init__()
