@@ -70,7 +70,7 @@ class BaseLightningModule(pl.LightningModule):
         loss_dict["loss"] = sum(map(torch.mean, loss_dict.values()))
         reporter.report_dict({"valid/" + k: torch.mean(v) for k, v in loss_dict.items()})
 
-        if hasattr(self, "log_eval"):
+        if hasattr(self, "log_eval") and batch_idx == 0:
             first_data = {
                 k: v[:1] if isinstance(v, torch.Tensor) else v for k, v in batch.items()
             }
