@@ -10,6 +10,8 @@ from pytorch_lightning.callbacks import RichModelSummary
 
 from pytorch_lightning_helpers import reporter
 from pytorch_lightning_helpers.utils import build_loss, compose
+import traceback
+
 
 
 class BaseLightningModule(pl.LightningModule):
@@ -31,6 +33,7 @@ class BaseLightningModule(pl.LightningModule):
 
         for k, v in modules.items():
             setattr(self, k, v)
+            setattr(v, 'module', lambda: self)
 
     def process(self, optimizer_idx, **kwargs):
         raise NotImplementedError(
@@ -77,8 +80,12 @@ class BaseLightningModule(pl.LightningModule):
             first_data = {
                 k: v[:1] if isinstance(v, torch.Tensor) else v for k, v in batch.items()
             }
-            model_inference_output = self.forward(first_data | model_output)
-            self.log_eval(batch, model_output, model_inference_output)
+            try:
+                model_inference_output = self.forward(first_data | model_output)
+                self.log_eval(batch, model_output, model_inference_output)
+            except RuntimeError as e:
+                traceback.print_exc()
+                logger.error(e)
 
         return loss_dict
 
