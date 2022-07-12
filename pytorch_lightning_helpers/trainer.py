@@ -1,4 +1,5 @@
 import os
+import traceback
 
 import hydra
 import munch
@@ -10,8 +11,6 @@ from pytorch_lightning.callbacks import RichModelSummary
 
 from pytorch_lightning_helpers import reporter
 from pytorch_lightning_helpers.utils import build_loss, compose
-import traceback
-
 
 
 class BaseLightningModule(pl.LightningModule):
@@ -33,7 +32,7 @@ class BaseLightningModule(pl.LightningModule):
 
         for k, v in modules.items():
             setattr(self, k, v)
-            setattr(v, 'module', lambda: self)
+            setattr(v, "module", lambda: self)
 
     def process(self, optimizer_idx, **kwargs):
         raise NotImplementedError(
