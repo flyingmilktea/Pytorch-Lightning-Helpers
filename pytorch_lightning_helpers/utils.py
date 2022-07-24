@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
+from loguru import logger
 from torch.optim.lr_scheduler import _LRScheduler
+from icecream import ic
+from collections.abc import Iterable
+
 
 
 def compose(*funcs):
@@ -13,7 +17,9 @@ def compose(*funcs):
 
 
 def build_loss(loss_fn, scale=1, start_step=0):
-    def loss(step=None, **kwargs):
+    def loss(step=None, start_step=start_step, **kwargs):
+        if isinstance(start_step, Iterable):
+            start_step = max(start_step)
         if step is not None and step < start_step:
             return {}
         return {k: v * scale for (k, v) in loss_fn(**kwargs).items()}
