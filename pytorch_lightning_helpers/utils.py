@@ -73,9 +73,9 @@ def build_module_pipeline(model_cfg):
             if isinstance(start_step, Iterable):
                 start_step = max(start_step)
             if kwargs.get("step", 0) < start_step:
-                return kwargs
+                return {}
             if not cond:
-                return kwargs
+                return {}
             return module_fn(**kwargs)
 
         return partial(pipeline_item, module_fn, start_step, cond)
