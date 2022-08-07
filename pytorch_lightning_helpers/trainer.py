@@ -1,5 +1,7 @@
 import os
+from icecream import ic
 import traceback
+from loguru import logger
 
 import hydra
 import munch
@@ -10,14 +12,14 @@ from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.callbacks import RichModelSummary
 
 from pytorch_lightning_helpers import reporter
-from pytorch_lightning_helpers.utils import build_loss, compose
+from pytorch_lightning_helpers.utils import build_loss, compose, build_module_pipeline
 
 
 class BaseLightningModule(pl.LightningModule):
-    def __init__(self, modules, process=None, lossfuncs=None):
+    def __init__(self, model=None, process=None, lossfuncs=None):
         super().__init__()
-        if process is not None:
-            self.process = compose(*process)
+        #if process is not None:
+        #    self.process = compose(*process)
         if lossfuncs is not None:
             self.lossfuncs = lossfuncs
             self.loss_map = self.lossfuncs["order"]
@@ -30,9 +32,13 @@ class BaseLightningModule(pl.LightningModule):
                 *[build_loss(**loss) for loss in self.lossfuncs["val"]]
             )
 
-        for k, v in modules.items():
+        model, pipeline, param_group = build_module_pipeline(model)
+        self.process = pipeline
+
+        for k, v in model.items():
             setattr(self, k, v)
             setattr(v, "module", lambda: self)
+        self.param_group = param_group
 
     def process(self, optimizer_idx, **kwargs):
         raise NotImplementedError(
@@ -43,13 +49,14 @@ class BaseLightningModule(pl.LightningModule):
         self.config = munch.munchify(config)
 
     def forward(self, srcs, refs):
-        results_dict = self.model(srcs, refs)
+        results_dict = self.lightning_module(srcs, refs)
         return results_dict["out"].squeeze().cpu().numpy()
 
     def training_step(self, batch, batch_idx, optimizer_idx=0):
         stage_name = self.loss_map[int(optimizer_idx)]
 
-        model_output = self.process(**batch, optimizer_idx=optimizer_idx)
+        model_output = self.process(**batch,
+                                    optimizer_idx=optimizer_idx,step=self.global_step)
         if model_output is None:
             return None
         loss_dict = self.train_losses[stage_name](
@@ -65,7 +72,8 @@ class BaseLightningModule(pl.LightningModule):
         return loss_dict
 
     def validation_step(self, batch, batch_idx):
-        model_output = self.process(**batch, optimizer_idx=None)
+        model_output = self.process(**batch, optimizer_idx=None,
+                                    step=self.global_step)
         if model_output is None:
             return None
         loss_dict = self.val_loss(**(batch | model_output), step=self.global_step)
@@ -83,8 +91,9 @@ class BaseLightningModule(pl.LightningModule):
             }
             try:
                 model_inference_output = self.forward(first_data | model_output)
-                self.log_eval(batch, model_output, model_inference_output)
-            except RuntimeError as e:
+                if model_inference_output is not None:
+                    self.log_eval(batch, model_output, model_inference_output)
+            except Exception as e:
                 traceback.print_exc()
                 logger.error(e)
 
@@ -112,20 +121,20 @@ def main(cfg: DictConfig):
     trainer.callbacks.append(reporter)
 
     if cfg.load_optimizer or cfg.last_ckpt is None:
-        model = instantiate(cfg.model)
-        model.set_config(cfg)
-        trainer.fit(model, dm, ckpt_path=cfg.last_ckpt)
+        lightning_module = instantiate(cfg.lightning_module)
+        lightning_module.set_config(cfg)
+        trainer.fit(lightning_module, dm, ckpt_path=cfg.last_ckpt)
     else:
-        model = hydra.utils.get_method(cfg.model["_target_"])
-        model = model.load_from_checkpoint(
+        lightning_module = hydra.utils.get_method(cfg.lightning_module["_target_"])
+        lightning_module = lightning_module.load_from_checkpoint(
             cfg.last_ckpt,
-            process=instantiate(cfg.process),
+            process=instantiate(cfg.process) if hasattr(cfg, 'process') else None,
             lossfuncs=instantiate(cfg.losses),
-            modules=instantiate(cfg.modules),
+            model=instantiate(cfg.model),
             strict=False,
         )
-        model.set_config(cfg)
-        trainer.fit(model, dm)
+        lightning_module.set_config(cfg)
+        trainer.fit(lightning_module, dm)
 
 
 if __name__ == "__main__":

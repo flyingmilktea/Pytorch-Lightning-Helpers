@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
+from operator import itemgetter
+from omegaconf import OmegaConf
+from loguru import logger
+import torch
+from torch.optim.lr_scheduler import _LRScheduler
+from icecream import ic
 from collections.abc import Iterable
+from functools import partial
 
 from torch.optim.lr_scheduler import _LRScheduler
 
@@ -59,3 +66,45 @@ class NoamLR(_LRScheduler):
     def load_state_dict(self, state_dict):
         # Override so that we can change the lr on resume
         self.__dict__.update({k: v for k, v in state_dict.items() if k != "base_lrs"})
+
+def build_module_pipeline(model_cfg):
+    def build_pipeline_item(module, fn, start_step=0, cond=True):
+        module_fn = fn_cache[module][fn]
+        def pipeline_item(module_fn, start_step, cond, **kwargs):
+            if isinstance(start_step, Iterable):
+                start_step = max(start_step)
+            if kwargs.get('step', 0) < start_step:
+                return kwargs
+            if not cond:
+                return kwargs
+            return module_fn(**kwargs)
+        return partial(pipeline_item, module_fn, start_step, cond)
+
+
+    module_cache = torch.nn.ModuleDict()
+    fn_cache = {}
+    for k, v in model_cfg.modules.items():
+        module_cache.update(v['modules'])
+        fn_cache[k] = v['methods']
+
+    pipeline = []
+    for pipeline_cfg_item in model_cfg.pipeline:
+        pipeline.append(build_pipeline_item(**pipeline_cfg_item))
+
+    pipeline = compose(*pipeline)
+
+    param_group = {}
+    if hasattr(model_cfg, 'param_group'):
+        for k, v in model_cfg.param_group.items():
+            param_group[k] = torch.nn.ModuleDict({name: module_cache[name] for
+                                                  name in v}).parameters()
+        modules_in_param_group = set(sum(OmegaConf.to_container(model_cfg.param_group).values(), []))
+        modules_without_param_group = set(module_cache.keys()) - modules_in_param_group
+        for name in modules_without_param_group:
+            logger.warning(f'{name} does not belong to any param groups.')
+    else:
+        param_group['default'] = module_cache.parameters()
+
+    return module_cache, pipeline, param_group
+
+
