@@ -15,13 +15,14 @@ from pytorch_lightning_helpers.utils import build_loss, build_module_pipeline, c
 
 
 class BaseLightningModule(pl.LightningModule):
-    def __init__(self, model=None, process=None, lossfuncs=None):
+    def __init__(self, model=None, process=None, lossfuncs=None,
+                 optimizer_order=None):
         super().__init__()
         # if process is not None:
         #    self.process = compose(*process)
         if lossfuncs is not None:
             self.lossfuncs = lossfuncs
-            self.loss_map = self.lossfuncs["order"]
+            self.optimizer_idx_map = optimizer_order
             self.train_losses = {}
             for name, losses in self.lossfuncs["train"].items():
                 self.train_losses[name] = compose(
@@ -31,7 +32,8 @@ class BaseLightningModule(pl.LightningModule):
                 *[build_loss(**loss) for loss in self.lossfuncs["val"]]
             )
 
-        model, pipeline, param_group = build_module_pipeline(model)
+        model, pipeline, param_group = build_module_pipeline(model,
+                                                             self.optimizer_idx_map)
         self.process = pipeline
 
         for k, v in model.items():
@@ -52,7 +54,7 @@ class BaseLightningModule(pl.LightningModule):
         return results_dict["out"].squeeze().cpu().numpy()
 
     def training_step(self, batch, batch_idx, optimizer_idx=0):
-        stage_name = self.loss_map[int(optimizer_idx)]
+        stage_name = self.optimizer_idx_map[int(optimizer_idx)]
 
         model_output = self.process(
             **batch, optimizer_idx=optimizer_idx, step=self.global_step
