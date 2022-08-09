@@ -66,15 +66,20 @@ class NoamLR(_LRScheduler):
 
 
 def build_module_pipeline(model_cfg, optimizer_idx_map):
-    def build_pipeline_item(module, fn, start_step=0, cond=True,
-                            enabled_optim=None):
+    def build_pipeline_item(module, fn, start_step=0, cond=True, enabled_optim=None):
         module_fn = fn_cache[module][fn]
 
         def pipeline_item(module_fn, start_step, cond, optimizer_idx, **kwargs):
             if isinstance(start_step, Iterable):
                 start_step = max(start_step)
-            current_optim_name = None if optimizer_idx is None else optimizer_idx_map[int(optimizer_idx)]
-            if enabled_optim is not None and current_optim_name is not None and enabled_optim != current_optim_name:
+            current_optim_name = (
+                None if optimizer_idx is None else optimizer_idx_map[int(optimizer_idx)]
+            )
+            if (
+                enabled_optim is not None
+                and current_optim_name is not None
+                and enabled_optim != current_optim_name
+            ):
                 return {}
             if kwargs.get("step", 0) < start_step:
                 return {}

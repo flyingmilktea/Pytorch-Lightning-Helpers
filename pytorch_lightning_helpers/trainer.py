@@ -15,8 +15,7 @@ from pytorch_lightning_helpers.utils import build_loss, build_module_pipeline, c
 
 
 class BaseLightningModule(pl.LightningModule):
-    def __init__(self, model=None, process=None, lossfuncs=None,
-                 optimizer_order=None):
+    def __init__(self, model=None, process=None, lossfuncs=None, optimizer_order=None):
         super().__init__()
         # if process is not None:
         #    self.process = compose(*process)
@@ -32,8 +31,9 @@ class BaseLightningModule(pl.LightningModule):
                 *[build_loss(**loss) for loss in self.lossfuncs["val"]]
             )
 
-        model, pipeline, param_group = build_module_pipeline(model,
-                                                             self.optimizer_idx_map)
+        model, pipeline, param_group = build_module_pipeline(
+            model, self.optimizer_idx_map
+        )
         self.process = pipeline
 
         for k, v in model.items():
