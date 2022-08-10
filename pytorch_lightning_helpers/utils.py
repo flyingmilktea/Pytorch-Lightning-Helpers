@@ -112,13 +112,17 @@ def build_module_pipeline(model_cfg, optimizer_idx_map):
         for k, v in model_cfg.param_group.items():
             group_module_dict = torch.nn.ModuleDict()
             for name in v:
-                group_module_dict.update(model_cfg.modules[name]['modules'])
+                group_module_dict.update(model_cfg.modules[name]["modules"])
             param_group[k] = group_module_dict.parameters()
         modules_in_param_group = set(
             sum(OmegaConf.to_container(model_cfg.param_group).values(), [])
         )
-        non_moduleless_blocks = {k: v for k, v in model_cfg.modules.items() if len(v['modules']) != 0}
-        modules_without_param_group = set(non_moduleless_blocks.keys()) - modules_in_param_group
+        non_moduleless_blocks = {
+            k: v for k, v in model_cfg.modules.items() if len(v["modules"]) != 0
+        }
+        modules_without_param_group = (
+            set(non_moduleless_blocks.keys()) - modules_in_param_group
+        )
         for name in modules_without_param_group:
             logger.warning(f"{name} does not belong to any param groups.")
     else:
