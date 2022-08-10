@@ -69,7 +69,7 @@ def build_module_pipeline(model_cfg, optimizer_idx_map):
     def build_pipeline_item(module, fn, start_step=-1, cond=True, enabled_optim=None):
         module_fn = fn_cache[module][fn]
 
-        def pipeline_item(module_fn, start_step, cond, optimizer_idx, **kwargs):
+        def pipeline_item(module_fn, start_step, cond, optimizer_idx=None, **kwargs):
             if isinstance(start_step, Iterable):
                 start_step = max(start_step)
             current_optim_name = (

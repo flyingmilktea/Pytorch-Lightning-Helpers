@@ -74,7 +74,7 @@ class BaseLightningModule(pl.LightningModule):
         return loss_dict
 
     def validation_step(self, batch, batch_idx):
-        model_output = self.pipeline(**batch, optimizer_idx=None, step=self.global_step)
+        model_output = self.pipeline(**batch, step=self.global_step)
         if model_output is None:
             return None
         loss_dict = self.val_loss(**(batch | model_output), step=self.global_step)
