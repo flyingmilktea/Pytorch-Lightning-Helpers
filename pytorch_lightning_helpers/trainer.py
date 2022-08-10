@@ -31,17 +31,18 @@ class BaseLightningModule(pl.LightningModule):
                 *[build_loss(**loss) for loss in self.lossfuncs["val"]]
             )
 
-        model, pipeline, param_group = build_module_pipeline(
-            model, self.optimizer_idx_map
+        model, pipeline, inference_pipeline, param_group = build_module_pipeline(
+            model, self.optimizer_idx_map,
         )
-        self.process = pipeline
+        self.pipeline = pipeline
+        self.inference_pipeline = inference_pipeline
 
         for k, v in model.items():
             setattr(self, k, v)
             setattr(v, "module", lambda: self)
         self.param_group = param_group
 
-    def process(self, optimizer_idx, **kwargs):
+    def pipeline(self, optimizer_idx, **kwargs):
         raise NotImplementedError(
             "process had to be either defined in custom lightning module or passed as a list in config."
         )
@@ -56,7 +57,7 @@ class BaseLightningModule(pl.LightningModule):
     def training_step(self, batch, batch_idx, optimizer_idx=0):
         stage_name = self.optimizer_idx_map[int(optimizer_idx)]
 
-        model_output = self.process(
+        model_output = self.pipeline(
             **batch, optimizer_idx=optimizer_idx, step=self.global_step
         )
         if model_output is None:
@@ -74,7 +75,7 @@ class BaseLightningModule(pl.LightningModule):
         return loss_dict
 
     def validation_step(self, batch, batch_idx):
-        model_output = self.process(**batch, optimizer_idx=None, step=self.global_step)
+        model_output = self.pipeline(**batch, optimizer_idx=None, step=self.global_step)
         if model_output is None:
             return None
         loss_dict = self.val_loss(**(batch | model_output), step=self.global_step)
@@ -91,7 +92,9 @@ class BaseLightningModule(pl.LightningModule):
                 k: v[:1] if isinstance(v, torch.Tensor) else v for k, v in batch.items()
             }
             try:
+                reporter.logging_disabled = True
                 model_inference_output = self.forward(first_data | model_output)
+                reporter.logging_disabled = False
                 if model_inference_output is not None:
                     self.log_eval(batch, model_output, model_inference_output)
             except Exception as e:

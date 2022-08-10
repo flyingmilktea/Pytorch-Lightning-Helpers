@@ -100,6 +100,12 @@ def build_module_pipeline(model_cfg, optimizer_idx_map):
         pipeline.append(build_pipeline_item(**pipeline_cfg_item))
 
     pipeline = compose(*pipeline)
+    
+    inference_pipeline = []
+    for inference_pipeline_cfg_item in model_cfg.inference_pipeline:
+        inference_pipeline.append(build_pipeline_item(**inference_pipeline_cfg_item))
+    
+    inference_pipeline = compose(*inference_pipeline)
 
     param_group = {}
     if hasattr(model_cfg, "param_group"):
@@ -116,4 +122,4 @@ def build_module_pipeline(model_cfg, optimizer_idx_map):
     else:
         param_group["default"] = module_cache.parameters()
 
-    return module_cache, pipeline, param_group
+    return module_cache, pipeline, inference_pipeline, param_group
