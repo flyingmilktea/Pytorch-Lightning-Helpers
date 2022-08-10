@@ -129,7 +129,11 @@ def main(cfg: DictConfig):
         trainer.fit(lightning_module, dm, ckpt_path=cfg.last_ckpt)
     else:
         lightning_module = hydra.utils.get_method(cfg.lightning_module["_target_"])
-        params = {k: instantiate(v) for k, v in cfg.lightning_module.items() if k != '_target_'}
+        params = {
+            k: instantiate(v)
+            for k, v in cfg.lightning_module.items()
+            if k != "_target_"
+        }
 
         lightning_module = lightning_module.load_from_checkpoint(
             cfg.last_ckpt,
