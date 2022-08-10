@@ -15,13 +15,11 @@ from pytorch_lightning_helpers.utils import build_loss, build_module_pipeline, c
 
 
 class BaseLightningModule(pl.LightningModule):
-    def __init__(self, model=None, process=None, lossfuncs=None, optimizer_order=None):
+    def __init__(self, model=None, lossfuncs=None, optimizer_order=None):
         super().__init__()
-        # if process is not None:
-        #    self.process = compose(*process)
+        self.optimizer_idx_map = optimizer_order
         if lossfuncs is not None:
             self.lossfuncs = lossfuncs
-            self.optimizer_idx_map = optimizer_order
             self.train_losses = {}
             for name, losses in self.lossfuncs["train"].items():
                 self.train_losses[name] = compose(
@@ -131,11 +129,11 @@ def main(cfg: DictConfig):
         trainer.fit(lightning_module, dm, ckpt_path=cfg.last_ckpt)
     else:
         lightning_module = hydra.utils.get_method(cfg.lightning_module["_target_"])
+        params = {k: instantiate(v) for k, v in cfg.lightning_module.items() if k != '_target_'}
+
         lightning_module = lightning_module.load_from_checkpoint(
             cfg.last_ckpt,
-            process=instantiate(cfg.process) if hasattr(cfg, "process") else None,
-            lossfuncs=instantiate(cfg.losses),
-            model=instantiate(cfg.model),
+            **params,
             strict=False,
         )
         lightning_module.set_config(cfg)
