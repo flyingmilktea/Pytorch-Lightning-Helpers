@@ -32,7 +32,8 @@ class BaseLightningModule(pl.LightningModule):
             )
 
         model, pipeline, inference_pipeline, param_group = build_module_pipeline(
-            model, self.optimizer_idx_map,
+            model,
+            self.optimizer_idx_map,
         )
         self.pipeline = pipeline
         self.inference_pipeline = inference_pipeline
