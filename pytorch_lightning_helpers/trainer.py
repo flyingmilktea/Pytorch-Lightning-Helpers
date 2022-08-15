@@ -1,5 +1,4 @@
 import os
-from icecream import ic
 import traceback
 
 import hydra
@@ -16,8 +15,9 @@ from pytorch_lightning_helpers.utils import build_loss, build_module_pipeline, c
 
 
 class BaseLightningModule(pl.LightningModule):
-    def __init__(self, model=None, lossfuncs=None, optimizer_order=None,
-                 train_stage='default'):
+    def __init__(
+        self, model=None, lossfuncs=None, optimizer_order=None, train_stage="default"
+    ):
         super().__init__()
         self.optimizer_idx_map = optimizer_order
         if lossfuncs is not None:
@@ -74,7 +74,9 @@ class BaseLightningModule(pl.LightningModule):
         return loss_dict
 
     def validation_step(self, batch, batch_idx):
-        model_output = self.pipelines[self.optimizer_idx_map[0]](**batch, step=self.global_step)
+        model_output = self.pipelines[self.optimizer_idx_map[0]](
+            **batch, step=self.global_step
+        )
         if model_output is None:
             return None
         loss_dict = self.val_loss(**(batch | model_output), step=self.global_step)
@@ -132,7 +134,7 @@ def main(cfg: DictConfig):
         params = {
             k: instantiate(v) if type(v) != str else v
             for k, v in cfg.lightning_module.items()
-            if k != "_target_" 
+            if k != "_target_"
         }
 
         lightning_module = lightning_module.load_from_checkpoint(

@@ -69,13 +69,15 @@ class NoamLR(_LRScheduler):
         self.__dict__.update({k: v for k, v in state_dict.items() if k != "base_lrs"})
 
 
-def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage='default'):
-    def build_pipeline_item(module, fn, start_step=-1, cond=True,
-                            enabled_optim=None, freeze=False):
+def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage="default"):
+    def build_pipeline_item(
+        module, fn, start_step=-1, cond=True, enabled_optim=None, freeze=False
+    ):
         module_fn = fn_cache[module][fn]
 
-        def pipeline_item(module_fn, start_step, cond, optimizer_idx=None,
-                          freeze=False, **kwargs):
+        def pipeline_item(
+            module_fn, start_step, cond, optimizer_idx=None, freeze=False, **kwargs
+        ):
             if isinstance(start_step, Iterable):
                 start_step = max(start_step)
             current_optim_name = (
@@ -96,7 +98,13 @@ def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage='default'):
                     return module_fn(optimizer_idx=optimizer_idx, **kwargs)
             return module_fn(optimizer_idx=optimizer_idx, **kwargs)
 
-        return partial(pipeline_item, module_fn=module_fn, start_step=start_step, cond=cond, freeze=freeze)
+        return partial(
+            pipeline_item,
+            module_fn=module_fn,
+            start_step=start_step,
+            cond=cond,
+            freeze=freeze,
+        )
 
     module_cache = torch.nn.ModuleDict()
     fn_cache = {}
@@ -115,8 +123,7 @@ def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage='default'):
     for inference_pipeline_cfg_item in model_cfg.inference_pipeline:
         inference_pipeline.append(build_pipeline_item(**inference_pipeline_cfg_item))
 
-    pipelines['inference'] = compose(*inference_pipeline)
-
+    pipelines["inference"] = compose(*inference_pipeline)
 
     param_group = {}
     if hasattr(model_cfg, "param_group"):
