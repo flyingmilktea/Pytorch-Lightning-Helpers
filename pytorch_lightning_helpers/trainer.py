@@ -1,4 +1,5 @@
 import os
+from icecream import ic
 import traceback
 
 import hydra
@@ -15,7 +16,8 @@ from pytorch_lightning_helpers.utils import build_loss, build_module_pipeline, c
 
 
 class BaseLightningModule(pl.LightningModule):
-    def __init__(self, model=None, lossfuncs=None, optimizer_order=None):
+    def __init__(self, model=None, lossfuncs=None, optimizer_order=None,
+                 train_stage='default'):
         super().__init__()
         self.optimizer_idx_map = optimizer_order
         if lossfuncs is not None:
@@ -29,34 +31,32 @@ class BaseLightningModule(pl.LightningModule):
                 *[build_loss(**loss) for loss in self.lossfuncs["val"]]
             )
 
-        model, pipeline, inference_pipeline, param_group = build_module_pipeline(
+        model, pipelines, param_group = build_module_pipeline(
             model,
             self.optimizer_idx_map,
+            train_stage,
         )
-        self.pipeline = pipeline
-        self.inference_pipeline = inference_pipeline
+        self.pipelines = pipelines
 
         for k, v in model.items():
             setattr(self, k, v)
             setattr(v, "module", lambda: self)
         self.param_group = param_group
 
-    def pipeline(self, optimizer_idx, **kwargs):
-        raise NotImplementedError(
-            "process had to be either defined in custom lightning module or passed as a list in config."
-        )
-
     def set_config(self, config):
         self.config = munch.munchify(config)
 
     def forward(self, srcs, refs):
+        # TODO consider moving inference pipeline here
         results_dict = self.lightning_module(srcs, refs)
         return results_dict["out"].squeeze().cpu().numpy()
 
     def training_step(self, batch, batch_idx, optimizer_idx=0):
         stage_name = self.optimizer_idx_map[int(optimizer_idx)]
+        if stage_name not in self.pipelines:
+            return None
 
-        model_output = self.pipeline(
+        model_output = self.pipelines[stage_name](
             **batch, optimizer_idx=optimizer_idx, step=self.global_step
         )
         if model_output is None:
@@ -74,7 +74,7 @@ class BaseLightningModule(pl.LightningModule):
         return loss_dict
 
     def validation_step(self, batch, batch_idx):
-        model_output = self.pipeline(**batch, step=self.global_step)
+        model_output = self.pipelines[self.optimizer_idx_map[0]](**batch, step=self.global_step)
         if model_output is None:
             return None
         loss_dict = self.val_loss(**(batch | model_output), step=self.global_step)
@@ -130,9 +130,9 @@ def main(cfg: DictConfig):
     else:
         lightning_module = hydra.utils.get_method(cfg.lightning_module["_target_"])
         params = {
-            k: instantiate(v)
+            k: instantiate(v) if type(v) != str else v
             for k, v in cfg.lightning_module.items()
-            if k != "_target_"
+            if k != "_target_" 
         }
 
         lightning_module = lightning_module.load_from_checkpoint(

@@ -24,7 +24,11 @@ def build_loss(loss_fn, scale=1, start_step=0):
             start_step = max(start_step)
         if step is not None and step < start_step:
             return {}
-        return {k: v * scale for (k, v) in loss_fn(**kwargs).items()}
+        # TODO resolve hack for awkward loss implementation with stage pipeline
+        try:
+            return {k: v * scale for (k, v) in loss_fn(**kwargs).items()}
+        except TypeError as e:
+            return {}
 
     return loss
 
@@ -65,11 +69,13 @@ class NoamLR(_LRScheduler):
         self.__dict__.update({k: v for k, v in state_dict.items() if k != "base_lrs"})
 
 
-def build_module_pipeline(model_cfg, optimizer_idx_map):
-    def build_pipeline_item(module, fn, start_step=-1, cond=True, enabled_optim=None):
+def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage='default'):
+    def build_pipeline_item(module, fn, start_step=-1, cond=True,
+                            enabled_optim=None, freeze=False):
         module_fn = fn_cache[module][fn]
 
-        def pipeline_item(module_fn, start_step, cond, optimizer_idx=None, **kwargs):
+        def pipeline_item(module_fn, start_step, cond, optimizer_idx=None,
+                          freeze=False, **kwargs):
             if isinstance(start_step, Iterable):
                 start_step = max(start_step)
             current_optim_name = (
@@ -85,9 +91,12 @@ def build_module_pipeline(model_cfg, optimizer_idx_map):
                 return {}
             if not cond:
                 return {}
+            if freeze:
+                with torch.no_grad():
+                    return module_fn(optimizer_idx=optimizer_idx, **kwargs)
             return module_fn(optimizer_idx=optimizer_idx, **kwargs)
 
-        return partial(pipeline_item, module_fn, start_step, cond)
+        return partial(pipeline_item, module_fn=module_fn, start_step=start_step, cond=cond, freeze=freeze)
 
     module_cache = torch.nn.ModuleDict()
     fn_cache = {}
@@ -95,17 +104,19 @@ def build_module_pipeline(model_cfg, optimizer_idx_map):
         module_cache.update(v["modules"])
         fn_cache[k] = v["methods"]
 
-    pipeline = []
-    for pipeline_cfg_item in model_cfg.pipeline:
-        pipeline.append(build_pipeline_item(**pipeline_cfg_item))
-
-    pipeline = compose(*pipeline)
+    pipelines = {}
+    for pipeline_name, pipeline_cfg in model_cfg.pipelines[train_stage].items():
+        pipeline = []
+        for pipeline_cfg_item in pipeline_cfg:
+            pipeline.append(build_pipeline_item(**pipeline_cfg_item))
+        pipelines[pipeline_name] = compose(*pipeline)
 
     inference_pipeline = []
     for inference_pipeline_cfg_item in model_cfg.inference_pipeline:
         inference_pipeline.append(build_pipeline_item(**inference_pipeline_cfg_item))
 
-    inference_pipeline = compose(*inference_pipeline)
+    pipelines['inference'] = compose(*inference_pipeline)
+
 
     param_group = {}
     if hasattr(model_cfg, "param_group"):
@@ -128,4 +139,4 @@ def build_module_pipeline(model_cfg, optimizer_idx_map):
     else:
         param_group["default"] = module_cache.parameters()
 
-    return module_cache, pipeline, inference_pipeline, param_group
+    return module_cache, pipelines, param_group
