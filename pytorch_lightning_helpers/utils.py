@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from icecream import ic
 from collections.abc import Iterable
 from functools import partial
 
@@ -17,20 +18,6 @@ def compose(*funcs):
 
     return f
 
-
-def build_loss(loss_fn, scale=1, start_step=0):
-    def loss(step=None, start_step=start_step, **kwargs):
-        if isinstance(start_step, Iterable):
-            start_step = max(start_step)
-        if step is not None and step < start_step:
-            return {}
-        # TODO resolve hack for awkward loss implementation with stage pipeline
-        try:
-            return {k: v * scale for (k, v) in loss_fn(**kwargs).items()}
-        except TypeError as e:
-            return {}
-
-    return loss
 
 
 class NoamLR(_LRScheduler):
@@ -147,3 +134,19 @@ def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage="default"):
         param_group["default"] = module_cache.parameters()
 
     return module_cache, pipelines, param_group
+
+def build_loss(loss_cfg, train_stage):
+    def build_loss_item(loss_fn, scale=1):
+        def loss(scale, **kwargs):
+            return {k: v * scale for (k, v) in loss_fn(**kwargs).items()}
+        return partial(loss, scale=scale)
+
+    loss_fn_cache = {}
+    for k, v in loss_cfg.loss_functions.items():
+        loss_fn_cache[k] = build_loss_item(**v)
+
+    loss_sets = {}
+    for loss_set_name, loss_set_list in loss_cfg.loss_sets[train_stage].items():
+        loss_sets[loss_set_name] = compose(*[loss_fn_cache[x] for x in
+                                             loss_set_list])
+    return loss_sets

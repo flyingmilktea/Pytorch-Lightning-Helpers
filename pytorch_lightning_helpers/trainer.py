@@ -21,27 +21,19 @@ class BaseLightningModule(pl.LightningModule):
         super().__init__()
         self.optimizer_idx_map = optimizer_order
         if lossfuncs is not None:
-            self.lossfuncs = lossfuncs
-            self.train_losses = {}
-            for name, losses in self.lossfuncs["train"].items():
-                self.train_losses[name] = compose(
-                    *[build_loss(**loss) for loss in losses]
-                )
-            self.val_loss = compose(
-                *[build_loss(**loss) for loss in self.lossfuncs["val"]]
+            self.losses = build_loss(
+                lossfuncs,
+                train_stage,
             )
-
-        model, pipelines, param_group = build_module_pipeline(
+        model, self.pipelines, self.param_group = build_module_pipeline(
             model,
             self.optimizer_idx_map,
             train_stage,
         )
-        self.pipelines = pipelines
 
         for k, v in model.items():
             setattr(self, k, v)
             setattr(v, "module", lambda: self)
-        self.param_group = param_group
 
     def set_config(self, config):
         self.config = munch.munchify(config)
@@ -61,7 +53,7 @@ class BaseLightningModule(pl.LightningModule):
         )
         if model_output is None:
             return None
-        loss_dict = self.train_losses[stage_name](
+        loss_dict = self.losses[stage_name](
             **(batch | model_output), step=self.global_step
         )
         if len(loss_dict) == 0:
@@ -79,7 +71,7 @@ class BaseLightningModule(pl.LightningModule):
         )
         if model_output is None:
             return None
-        loss_dict = self.val_loss(**(batch | model_output), step=self.global_step)
+        loss_dict = self.losses['val'](**(batch | model_output), step=self.global_step)
 
         if len(loss_dict) == 0:
             return None
