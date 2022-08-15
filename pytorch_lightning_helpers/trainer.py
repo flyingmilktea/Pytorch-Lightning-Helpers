@@ -11,7 +11,7 @@ from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.callbacks import RichModelSummary
 
 from pytorch_lightning_helpers import reporter
-from pytorch_lightning_helpers.utils import build_loss, build_module_pipeline, compose
+from pytorch_lightning_helpers.utils import build_loss, build_module_pipeline
 
 
 class BaseLightningModule(pl.LightningModule):
@@ -71,7 +71,7 @@ class BaseLightningModule(pl.LightningModule):
         )
         if model_output is None:
             return None
-        loss_dict = self.losses['val'](**(batch | model_output), step=self.global_step)
+        loss_dict = self.losses["val"](**(batch | model_output), step=self.global_step)
 
         if len(loss_dict) == 0:
             return None

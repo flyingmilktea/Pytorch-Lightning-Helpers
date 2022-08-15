@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from icecream import ic
 from collections.abc import Iterable
 from functools import partial
 
@@ -17,7 +16,6 @@ def compose(*funcs):
         return ret
 
     return f
-
 
 
 class NoamLR(_LRScheduler):
@@ -135,10 +133,12 @@ def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage="default"):
 
     return module_cache, pipelines, param_group
 
+
 def build_loss(loss_cfg, train_stage):
     def build_loss_item(loss_fn, scale=1):
         def loss(scale, **kwargs):
             return {k: v * scale for (k, v) in loss_fn(**kwargs).items()}
+
         return partial(loss, scale=scale)
 
     loss_fn_cache = {}
@@ -147,6 +147,5 @@ def build_loss(loss_cfg, train_stage):
 
     loss_sets = {}
     for loss_set_name, loss_set_list in loss_cfg.loss_sets[train_stage].items():
-        loss_sets[loss_set_name] = compose(*[loss_fn_cache[x] for x in
-                                             loss_set_list])
+        loss_sets[loss_set_name] = compose(*[loss_fn_cache[x] for x in loss_set_list])
     return loss_sets
