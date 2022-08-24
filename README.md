@@ -1,14 +1,19 @@
 # Pytorch-Lightning-Helpers
-Customization on top of pytorch-lightning for quick and easy experimentations. Inspired by [Speechbrain's](https://github.com/speechbrain/speechbrain) mixed yaml configuration and code customization approach, and [Pytorch-lightning's](https://github.com/PyTorchLightning/pytorch-lightning) modular approach.
+Customization on top of pytorch-lightning for quick and easy experimentations. Inspired by 
+
+1. [Speechbrain's](https://github.com/speechbrain/speechbrain) mixed yaml configuration, dependency injection and code customization approach.
+2. [Pytorch-lightning's](https://github.com/PyTorchLightning/pytorch-lightning) Modular approach.
+3. [AWS Cloudformation's](https://aws.amazon.com/cloudformation/) Infrastucture-as-code
 
 ## Principles
 - Plug-and-playable loss functions, models, data-modules and loggers.
 - Configuration-as-code
-- Minimal pass by position, use pass by name if possible
+- Pass by name, minimal pass by position
 - Functional and high composability
+- Dependency injection
 
 ## TODO
+- [ ] Dataloader design is not as plug-and-play as expected
 - [ ] Grouped batching based on data length.
-- [ ] Figure out a way to deal with increasing config file length (Ref: https://github.com/facebookresearch/hydra)
 - [ ] Think of a shorter name
 - [ ] Enable multi-gpu processing
