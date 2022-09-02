@@ -63,7 +63,7 @@ class BaseLightningModule(pl.LightningModule):
             {f"train_{stage_name}/" + k: torch.mean(v) for k, v in loss_dict.items()}
         )
         loss_dict = {k: v.detach() if k != "loss" else v for k, v in loss_dict.items()}
-        if not loss_dict['loss'].requires_grad:
+        if not loss_dict["loss"].requires_grad:
             return None
         return loss_dict
 

@@ -30,14 +30,14 @@ class Reporter(pl.Callback):
             return
         if self.logging_disabled:
             return
-        if not(
+        if not (
             self.trainer.global_step % self.trainer.log_every_n_steps == 0
             or self.stage == "val"
         ):
             return
 
         if name in self.delayed_report_storage:
-            assert self.delayed_report_storage[name]['tag'] == tag
+            assert self.delayed_report_storage[name]["tag"] == tag
             if reducer is not None:
                 reduced_kwargs = {}
                 old_kwargs = self.delayed_report_storage[name]
@@ -50,9 +50,7 @@ class Reporter(pl.Callback):
             else:
                 self.delayed_report_storage[name] |= kwargs
         else:
-            self.delayed_report_storage[name] = {'tag': tag, **kwargs}
-
-
+            self.delayed_report_storage[name] = {"tag": tag, **kwargs}
 
     @torch.no_grad()
     def flush_delayed_report(self):
@@ -130,6 +128,7 @@ class Reporter(pl.Callback):
 
     def on_validation_batch_end(self, *args, **kwargs):
         self.flush_delayed_report()
+
 
 def clean_data_type(data):
     if isinstance(data, torch.Tensor):
