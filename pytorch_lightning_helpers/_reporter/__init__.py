@@ -11,6 +11,7 @@ class Reporter(pl.Callback):
         self.logging_disabled = False
         self.stage = None
         self.val_first_batch = False
+        self.delayed_report_storage = {}
 
     def on_fit_start(self, trainer, pl_module):
         self.trainer = trainer
@@ -22,6 +23,42 @@ class Reporter(pl.Callback):
     def register_dict(self, fns):
         for tag, fn in fns:
             self.write_fns[tag] = fn
+
+    @torch.no_grad()
+    def delayed_report(self, name, tag=None, reducer=None, **kwargs):
+        if self.pl_module is None:
+            return
+        if self.logging_disabled:
+            return
+        if not(
+            self.trainer.global_step % self.trainer.log_every_n_steps == 0
+            or self.stage == "val"
+        ):
+            return
+
+        if name in self.delayed_report_storage:
+            assert self.delayed_report_storage[name]['tag'] == tag
+            if reducer is not None:
+                reduced_kwargs = {}
+                old_kwargs = self.delayed_report_storage[name]
+                for k, v in kwargs.items():
+                    if k not in old_kwargs or k not in reducer:
+                        reduced_kwargs[k] = v
+                    else:
+                        reduced_kwargs[k] = reducer[k](old_kwargs[k], v)
+                self.delayed_report_storage[name] = old_kwargs | reduced_kwargs
+            else:
+                self.delayed_report_storage[name] |= kwargs
+        else:
+            self.delayed_report_storage[name] = {'tag': tag, **kwargs}
+
+
+
+    @torch.no_grad()
+    def flush_delayed_report(self):
+        for name, storage in self.delayed_report_storage.items():
+            self.report(name=name, **storage)
+        self.delayed_report_storage.clear()
 
     @torch.no_grad()
     def report(self, name, *args, tag=None, **kwargs):
@@ -88,6 +125,11 @@ class Reporter(pl.Callback):
         self.stage = "train"
         self.logging_disabled = False
 
+    def on_train_batch_end(self, *args, **kwargs):
+        self.flush_delayed_report()
+
+    def on_validation_batch_end(self, *args, **kwargs):
+        self.flush_delayed_report()
 
 def clean_data_type(data):
     if isinstance(data, torch.Tensor):
