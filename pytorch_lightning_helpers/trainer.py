@@ -88,7 +88,7 @@ class BaseLightningModule(pl.LightningModule):
             }
             try:
                 reporter.logging_disabled = True
-                model_inference_output = self.forward(first_data | model_output)
+                model_inference_output = self.forward(first_data)
                 reporter.logging_disabled = False
                 if model_inference_output is not None:
                     self.log_eval(batch, model_output, model_inference_output)
