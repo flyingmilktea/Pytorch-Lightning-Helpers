@@ -1,17 +1,14 @@
 import csv
+import re
 from collections import defaultdict
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from FastSpeech.utils import rgetattr, rsetattr
 from pytorch_lightning.callbacks.base import Callback
 
-import matplotlib
-import matplotlib.pyplot as plt
-import re
-
-from codetiming import Timer
 
 class WarmerScheduler(Callback):
     def __init__(self, attribute, warmup_steps, start_step=0):
@@ -190,15 +187,9 @@ class OutlierDetector(Callback):
                 fc.writeheader()
                 fc.writerows(rows)
 
+
 class DataSaver(Callback):
-    def __init__(
-        self,
-        data_dirpath,
-        graph_dirpath,
-        save_modes,
-        log,
-        ids
-    ):
+    def __init__(self, data_dirpath, graph_dirpath, save_modes, log, ids):
         super().__init__()
         self.data_dirpath = Path(data_dirpath)
         self.graph_dirpath = Path(graph_dirpath)
@@ -211,7 +202,7 @@ class DataSaver(Callback):
             self.log_bool = False
         self.ids = ids
 
-    def on_predict_batch_end(self, trainer, pl_module, outputs, batch, *args, **kwargs):  
+    def on_predict_batch_end(self, trainer, pl_module, outputs, batch, *args, **kwargs):
         if len(outputs) == 0:
             return
         outputs = outputs
@@ -238,7 +229,9 @@ class DataSaver(Callback):
                 trellis_with_path = trellis_with_path.cpu().numpy()
                 plotted = trellis_with_path[: text_length[i], : mel_length[i]]
                 np.save(f"{self.data_dirpath}/{pred_id}_trellis.npy", plotted)
-                log_delta_e = outputs["duration"][i].float()[:int(text_length[i])].cpu().numpy()
+                log_delta_e = (
+                    outputs["duration"][i].float()[: int(text_length[i])].cpu().numpy()
+                )
                 np.save(f"{self.data_dirpath}/{pred_id}_duration-dfa.npy", log_delta_e)
         if "draw_graphs" in self.save_modes:
             text_length = batch["text_lens"]
@@ -255,17 +248,43 @@ class DataSaver(Callback):
                         continue
                 print(pred_id)
                 flat_phones = batch["misc"][i]["phoneme_extended"]
-                flat_phones = re.sub(r"\([a-zA-Z_]+/(.+?)\)", "\g<1>", flat_phones).split(" ")
-                log_delta_e = outputs["duration"][i].float()[:int(text_length[i])].cpu().numpy()
-                dur_pred = outputs["duration_pred"][i].float()[:int(text_length[i])].cpu().numpy()
+                flat_phones = re.sub(
+                    r"\([a-zA-Z_]+/(.+?)\)", "\g<1>", flat_phones
+                ).split(" ")
+                log_delta_e = (
+                    outputs["duration"][i].float()[: int(text_length[i])].cpu().numpy()
+                )
+                dur_pred = (
+                    outputs["duration_pred"][i]
+                    .float()[: int(text_length[i])]
+                    .cpu()
+                    .numpy()
+                )
                 x = np.arange(len(dur_pred))
                 try:
-                    plt.bar(x, height=log_delta_e, log=self.log_bool, alpha=0.5, color="b", label="targets")
-                    plt.bar(x, height=dur_pred, log=self.log_bool, alpha=0.5, color="r", label="pred")
-                    plt.xticks(x, [t if t != " " else "<space>" for t in flat_phones], rotation=-90)
+                    plt.bar(
+                        x,
+                        height=log_delta_e,
+                        log=self.log_bool,
+                        alpha=0.5,
+                        color="b",
+                        label="targets",
+                    )
+                    plt.bar(
+                        x,
+                        height=dur_pred,
+                        log=self.log_bool,
+                        alpha=0.5,
+                        color="r",
+                        label="pred",
+                    )
+                    plt.xticks(
+                        x,
+                        [t if t != " " else "<space>" for t in flat_phones],
+                        rotation=-90,
+                    )
                 except Exception as e:
                     print(f"Error: {str(e)}")
-                    pass
                 plt.legend()
                 plt.tight_layout()
                 plt.draw()
@@ -276,7 +295,11 @@ class DataSaver(Callback):
                 trellis_with_path = trellis.clone()
                 trellis_with_path[alignment.bool()] = float("nan")
                 trellis_with_path = trellis_with_path.cpu().numpy()
-                plt.imshow(trellis_with_path[: text_length[i], : mel_length[i]], origin="lower", aspect="auto")
+                plt.imshow(
+                    trellis_with_path[: text_length[i], : mel_length[i]],
+                    origin="lower",
+                    aspect="auto",
+                )
                 plt.colorbar()
                 plt.draw()
                 plt.savefig(f"{self.graph_dirpath}/{pred_id}_trellis.png")
