@@ -81,6 +81,7 @@ def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage="default"):
                 return {}
             args = inspect.getfullargspec(module_fn).args
             kwdict = {k: v for k, v in kwargs.items() if k in args}
+            # print(args, kwargs.keys())
             if freeze:
                 with torch.no_grad():
                     return module_fn(optimizer_idx=optimizer_idx, **kwdict)
@@ -154,3 +155,21 @@ def build_loss(loss_cfg, train_stage):
     for loss_set_name, loss_set_list in loss_cfg.loss_sets[train_stage].items():
         loss_sets[loss_set_name] = compose(*[loss_fn_cache[x] for x in loss_set_list])
     return loss_sets
+
+def detach_list(model_output):
+    return [detach_any(v) for v in model_output]
+
+
+def detach_values(model_output):
+    return {k: detach_any(v) for k, v in model_output.items()}
+
+
+def detach_any(item):
+    if type(item) == torch.Tensor:
+        return item.detach()
+    elif type(item) == dict:
+        return detach_values(item)
+    elif type(item) == list:
+        return detach_list(item)
+    else:
+        return item
