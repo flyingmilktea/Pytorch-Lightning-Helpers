@@ -79,10 +79,12 @@ def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage="default"):
                 return {}
             if not cond:
                 return {}
+            args = inspect.getfullargspec(module_fn).args
+            kwdict = {k: v for k, v in kwargs.items() if k in args}
             if freeze:
                 with torch.no_grad():
-                    return module_fn(optimizer_idx=optimizer_idx, **kwargs)
-            return module_fn(optimizer_idx=optimizer_idx, **kwargs)
+                    return module_fn(optimizer_idx=optimizer_idx, **kwdict)
+            return module_fn(optimizer_idx=optimizer_idx, **kwdict)
 
         return partial(
             pipeline_item,
@@ -138,11 +140,8 @@ def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage="default"):
 def build_loss(loss_cfg, train_stage):
     def build_loss_item(loss_fn, scale=1):
         def loss(scale, **kwargs):
-            args = inspect.getfullargspec(loss_fn)
-            kwdict = {}
-            for kw in kwargs:
-                if kw in args:
-                    kwdict[kw] = kwargs[kw]
+            args = inspect.getfullargspec(loss_fn).args
+            kwdict = {k: v for k, v in kwargs.items() if k in args}
             return {k: v * scale for (k, v) in loss_fn(**kwdict).items()}
 
         return partial(loss, scale=scale)
