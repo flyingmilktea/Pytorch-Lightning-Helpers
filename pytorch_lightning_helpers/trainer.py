@@ -67,7 +67,11 @@ class BaseLightningModule(pl.LightningModule):
         loss_dict = {k: v.detach() if k != "loss" else v for k, v in loss_dict.items()}
 
         model_output = {k: v.detach() for k, v in model_output.items()}
-        return {"loss_dict": loss_dict, "model_output": model_output, "loss": total_loss}
+        return {
+            "loss_dict": loss_dict,
+            "model_output": model_output,
+            "loss": total_loss,
+        }
 
     def validation_step(self, batch, batch_idx):
         model_output = self.pipelines[self.optimizer_idx_map[0]](

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import inspect
 from collections.abc import Iterable
 from functools import partial
 
@@ -7,7 +8,6 @@ from loguru import logger
 from omegaconf import OmegaConf
 from torch.optim.lr_scheduler import _LRScheduler
 
-import inspect
 
 def compose(*funcs):
     def f(**kwargs):
