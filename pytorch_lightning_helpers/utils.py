@@ -156,6 +156,7 @@ def build_loss(loss_cfg, train_stage):
         loss_sets[loss_set_name] = compose(*[loss_fn_cache[x] for x in loss_set_list])
     return loss_sets
 
+
 def detach_list(model_output):
     return [detach_any(v) for v in model_output]
 

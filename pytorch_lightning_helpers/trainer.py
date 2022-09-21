@@ -11,7 +11,11 @@ from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.callbacks import RichModelSummary
 
 from pytorch_lightning_helpers import reporter
-from pytorch_lightning_helpers.utils import build_loss, build_module_pipeline, detach_any
+from pytorch_lightning_helpers.utils import (
+    build_loss,
+    build_module_pipeline,
+    detach_any,
+)
 
 
 class BaseLightningModule(pl.LightningModule):
@@ -64,7 +68,9 @@ class BaseLightningModule(pl.LightningModule):
         reporter.report_dict(
             {f"train_{stage_name}/" + k: torch.mean(v) for k, v in loss_dict.items()}
         )
-        loss_dict = {k: detach_any(v) if k != "loss" else v for k, v in loss_dict.items()}
+        loss_dict = {
+            k: detach_any(v) if k != "loss" else v for k, v in loss_dict.items()
+        }
 
         model_output = {k: detach_any(v) for k, v in model_output.items()}
         return {
