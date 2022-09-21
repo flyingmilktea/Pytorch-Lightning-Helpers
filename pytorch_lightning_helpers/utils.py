@@ -7,6 +7,7 @@ from loguru import logger
 from omegaconf import OmegaConf
 from torch.optim.lr_scheduler import _LRScheduler
 
+import inspect
 
 def compose(*funcs):
     def f(**kwargs):
@@ -137,7 +138,12 @@ def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage="default"):
 def build_loss(loss_cfg, train_stage):
     def build_loss_item(loss_fn, scale=1):
         def loss(scale, **kwargs):
-            return {k: v * scale for (k, v) in loss_fn(**kwargs).items()}
+            args = inspect.getfullargspec(loss_fn)
+            kwdict = {}
+            for kw in kwargs:
+                if kw in args:
+                    kwdict[kw] = kwargs[kw]
+            return {k: v * scale for (k, v) in loss_fn(**kwdict).items()}
 
         return partial(loss, scale=scale)
 

@@ -58,14 +58,16 @@ class BaseLightningModule(pl.LightningModule):
         )
         if len(loss_dict) == 0:
             return None
-        loss_dict["loss"] = sum(map(torch.mean, loss_dict.values()))
+        total_loss = sum(map(torch.mean, loss_dict.values()))
+        if not total_loss.requires_grad:
+            total_loss = None
         reporter.report_dict(
             {f"train_{stage_name}/" + k: torch.mean(v) for k, v in loss_dict.items()}
         )
         loss_dict = {k: v.detach() if k != "loss" else v for k, v in loss_dict.items()}
-        if not loss_dict["loss"].requires_grad:
-            return None
-        return loss_dict
+
+        model_output = {k: v.detach() for k, v in model_output.items()}
+        return {"loss_dict": loss_dict, "model_output": model_output, "loss": total_loss}
 
     def validation_step(self, batch, batch_idx):
         model_output = self.pipelines[self.optimizer_idx_map[0]](
