@@ -7,6 +7,11 @@ import torch
 from FastSpeech.utils import rgetattr, rsetattr
 from pytorch_lightning.callbacks.base import Callback
 
+import matplotlib
+import matplotlib.pyplot as plt
+import re
+
+from codetiming import Timer
 
 class WarmerScheduler(Callback):
     def __init__(self, attribute, warmup_steps, start_step=0):
@@ -118,7 +123,7 @@ class OutlierDetector(Callback):
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, *args, **kwargs):
         if len(outputs) == 0:
             return
-        outputs = outputs[0]
+        outputs = outputs[0]["loss_dict"]
         for loss_name, loss in outputs.items():
             if len(loss.shape) == 0 or len(loss) == 1:
                 continue
@@ -127,7 +132,6 @@ class OutlierDetector(Callback):
                 self.log_outliers(loss_name, loss, z_score, batch)
             self.update_stats(loss_name, loss)
 
-    # def on_train_epoch_end(self, trainer, pl_module):
     def on_validation_epoch_end(self, *args, **kwargs):
         self.flush_logs()
 
@@ -185,3 +189,96 @@ class OutlierDetector(Callback):
                 )
                 fc.writeheader()
                 fc.writerows(rows)
+
+class DataSaver(Callback):
+    def __init__(
+        self,
+        data_dirpath,
+        graph_dirpath,
+        save_modes,
+        log,
+        ids
+    ):
+        super().__init__()
+        self.data_dirpath = Path(data_dirpath)
+        self.graph_dirpath = Path(graph_dirpath)
+        self.data_dirpath.mkdir(parents=True, exist_ok=True)
+        self.graph_dirpath.mkdir(parents=True, exist_ok=True)
+        self.save_modes = save_modes
+        if log == "True":
+            self.log_bool = True
+        else:
+            self.log_bool = False
+        self.ids = ids
+
+    def on_predict_batch_end(self, trainer, pl_module, outputs, batch, *args, **kwargs):  
+        if len(outputs) == 0:
+            return
+        outputs = outputs
+        filenames = batch["audiopath"]
+        duration_pred = outputs["duration_pred"]
+        for i in range(len(duration_pred)):
+            filename = filenames[i]
+            pred_id = Path(filename).stem
+            pred_duration = duration_pred[i].cpu().numpy()
+            np.save(f"{self.data_dirpath}/{pred_id}.npy", pred_duration)
+        if "save_data" in self.save_modes:
+            text_length = batch["text_lens"]
+            mel_length = batch["mel_lens"]
+            for i in range(len(duration_pred)):
+                filename = filenames[i]
+                pred_id = Path(filename).stem
+                if self.ids is not None:
+                    if pred_id not in self.ids:
+                        continue
+                trellis = outputs["alpha"][i]
+                alignment = outputs["imv"][i]
+                trellis_with_path = trellis.clone()
+                trellis_with_path[alignment.bool()] = float("nan")
+                trellis_with_path = trellis_with_path.cpu().numpy()
+                plotted = trellis_with_path[: text_length[i], : mel_length[i]]
+                np.save(f"{self.data_dirpath}/{pred_id}_trellis.npy", plotted)
+                log_delta_e = outputs["duration"][i].float()[:int(text_length[i])].cpu().numpy()
+                np.save(f"{self.data_dirpath}/{pred_id}_duration-dfa.npy", log_delta_e)
+        if "draw_graphs" in self.save_modes:
+            text_length = batch["text_lens"]
+            mel_length = batch["mel_lens"]
+            f = plt.figure()
+            f.set_figwidth(20)
+            f.set_figheight(16)
+            plt.clf()
+            for i in range(len(duration_pred)):
+                filename = filenames[i]
+                pred_id = Path(filename).stem
+                if self.ids is not None:
+                    if pred_id not in self.ids:
+                        continue
+                print(pred_id)
+                flat_phones = batch["misc"][i]["phoneme_extended"]
+                flat_phones = re.sub(r"\([a-zA-Z_]+/(.+?)\)", "\g<1>", flat_phones).split(" ")
+                log_delta_e = outputs["duration"][i].float()[:int(text_length[i])].cpu().numpy()
+                dur_pred = outputs["duration_pred"][i].float()[:int(text_length[i])].cpu().numpy()
+                x = np.arange(len(dur_pred))
+                try:
+                    plt.bar(x, height=log_delta_e, log=self.log_bool, alpha=0.5, color="b", label="targets")
+                    plt.bar(x, height=dur_pred, log=self.log_bool, alpha=0.5, color="r", label="pred")
+                    plt.xticks(x, [t if t != " " else "<space>" for t in flat_phones], rotation=-90)
+                except Exception as e:
+                    print(f"Error: {str(e)}")
+                    pass
+                plt.legend()
+                plt.tight_layout()
+                plt.draw()
+                plt.savefig(f"{self.graph_dirpath}/{pred_id}.png")
+                plt.clf()
+                trellis = outputs["alpha"][i]
+                alignment = outputs["imv"][i]
+                trellis_with_path = trellis.clone()
+                trellis_with_path[alignment.bool()] = float("nan")
+                trellis_with_path = trellis_with_path.cpu().numpy()
+                plt.imshow(trellis_with_path[: text_length[i], : mel_length[i]], origin="lower", aspect="auto")
+                plt.colorbar()
+                plt.draw()
+                plt.savefig(f"{self.graph_dirpath}/{pred_id}_trellis.png")
+                plt.clf()
+            plt.close()

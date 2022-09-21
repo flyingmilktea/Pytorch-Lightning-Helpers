@@ -45,6 +45,11 @@ class MultiStageDataModule(pl.LightningDataModule):
     def val_dataloader(self):
         return DataLoader(**self.valdm)
 
+    def predict_dataloader(self):
+        logger.debug(f"current batch_size is: {self.current_dm['batch_size']}")
+        # print(self.current_dm, self.current_dm.keys())
+        return DataLoader(**self.current_dm)
+
     def set_phase(self, stageindex):
         logger.debug(f"setting phase: {stageindex}")
         self.current_dm = self.traindms[stageindex]
