@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from contextlib import nullcontext
 import inspect
 from collections.abc import Iterable
 from functools import partial
@@ -13,7 +14,7 @@ def compose(*funcs):
     def f(**kwargs):
         ret = {}
         for f in funcs:
-            ret |= f(**{**kwargs, **ret})
+            ret |= supply_kwargs(f, kwargs|ret)
         return ret
 
     return f
@@ -80,12 +81,9 @@ def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage="default"):
             if not cond:
                 return {}
             args = inspect.getfullargspec(module_fn).args
-            kwdict = {k: v for k, v in kwargs.items() if k in args}
-            # print(args, kwargs.keys())
-            if freeze:
-                with torch.no_grad():
-                    return module_fn(optimizer_idx=optimizer_idx, **kwdict)
-            return module_fn(optimizer_idx=optimizer_idx, **kwdict)
+            grad_context = torch.no_grad if freeze else nullcontext
+            with grad_context():
+                return supply_kwargs(module_fn, kwargs|{'optimizer_idx':optimizer_idx})
 
         return partial(
             pipeline_item,
@@ -143,9 +141,7 @@ def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage="default"):
 def build_loss(loss_cfg, train_stage):
     def build_loss_item(loss_fn, scale=1):
         def loss(scale, **kwargs):
-            args = inspect.getfullargspec(loss_fn).args
-            kwdict = {k: v for k, v in kwargs.items() if k in args}
-            return {k: v * scale for (k, v) in loss_fn(**kwdict).items()}
+            return {k: v * scale for (k, v) in supply_kwargs(loss_fn, kwargs).items()}
 
         return partial(loss, scale=scale)
 
@@ -176,3 +172,9 @@ def detach_any(item):
         return detach_list(item)
     else:
         return item
+
+def supply_kwargs(fn, kwargs):
+    argspec = inspect.getfullargspec(fn)
+    if argspec.varkw is None:
+        kwargs = {k: v for k, v in kwargs.items() if k in argspec.args}
+    return fn(**kwargs)
