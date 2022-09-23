@@ -120,7 +120,15 @@ class OutlierDetector(Callback):
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, *args, **kwargs):
         if len(outputs) == 0:
             return
-        outputs = outputs[0]["loss_dict"]
+        outputs = outputs["loss_dict"]
+        self.find_and_log_outliers(trainer, outputs, batch)
+
+    @torch.no_grad()
+    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, *args, **kwargs):
+        outputs = outputs["loss_dict"]
+        self.find_and_log_outliers(trainer, outputs, batch)
+
+    def find_and_log_outliers(self, trainer, outputs, batch):
         for loss_name, loss in outputs.items():
             if len(loss.shape) == 0 or len(loss) == 1:
                 continue

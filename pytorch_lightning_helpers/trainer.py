@@ -70,6 +70,7 @@ class BaseLightningModule(pl.LightningModule):
         if len(loss_dict) == 0:
             return None
         total_loss = sum(map(torch.mean, loss_dict.values()))
+        loss_dict['loss'] = total_loss
         if not total_loss.requires_grad:
             total_loss = None
         reporter.report_dict(
@@ -93,10 +94,10 @@ class BaseLightningModule(pl.LightningModule):
         if model_output is None:
             return None
         loss_dict = self.losses["val"](**(batch | model_output), step=self.global_step)
-
         if len(loss_dict) == 0:
             return None
-        loss_dict["loss"] = sum(map(torch.mean, loss_dict.values()))
+        total_loss = sum(map(torch.mean, loss_dict.values()))
+        loss_dict['loss'] = total_loss
         reporter.report_dict(
             {"valid/" + k: torch.mean(v) for k, v in loss_dict.items()}
         )
@@ -115,7 +116,12 @@ class BaseLightningModule(pl.LightningModule):
                 traceback.print_exc()
                 logger.error(e)
 
-        return loss_dict
+        return {
+            "loss_dict": loss_dict,
+            "model_output": model_output,
+            "loss": total_loss,
+        }
+
 
     def configure_callbacks(self):
         return [RichModelSummary(max_depth=4)]
