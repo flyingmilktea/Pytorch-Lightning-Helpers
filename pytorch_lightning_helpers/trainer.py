@@ -45,7 +45,6 @@ class BaseLightningModule(pl.LightningModule):
             else:
                 setattr(self, k, v)
 
-
     def set_config(self, config):
         self.config = munch.munchify(config)
 
@@ -70,7 +69,7 @@ class BaseLightningModule(pl.LightningModule):
         if len(loss_dict) == 0:
             return None
         total_loss = sum(map(torch.mean, loss_dict.values()))
-        loss_dict['loss'] = total_loss
+        loss_dict["loss"] = total_loss
         if not total_loss.requires_grad:
             total_loss = None
         reporter.report_dict(
@@ -97,7 +96,7 @@ class BaseLightningModule(pl.LightningModule):
         if len(loss_dict) == 0:
             return None
         total_loss = sum(map(torch.mean, loss_dict.values()))
-        loss_dict['loss'] = total_loss
+        loss_dict["loss"] = total_loss
         reporter.report_dict(
             {"valid/" + k: torch.mean(v) for k, v in loss_dict.items()}
         )
@@ -121,7 +120,6 @@ class BaseLightningModule(pl.LightningModule):
             "model_output": model_output,
             "loss": total_loss,
         }
-
 
     def configure_callbacks(self):
         return [RichModelSummary(max_depth=4)]

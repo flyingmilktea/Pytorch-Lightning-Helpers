@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-from contextlib import nullcontext
 import inspect
 from collections.abc import Iterable
+from contextlib import nullcontext
 from functools import partial
 
 import torch
@@ -14,7 +14,7 @@ def compose(*funcs):
     def f(**kwargs):
         ret = {}
         for f in funcs:
-            ret |= supply_kwargs(f, kwargs|ret)
+            ret |= supply_kwargs(f, kwargs | ret)
         return ret
 
     return f
@@ -83,7 +83,9 @@ def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage="default"):
             args = inspect.getfullargspec(module_fn).args
             grad_context = torch.no_grad if freeze else nullcontext
             with grad_context():
-                return supply_kwargs(module_fn, kwargs|{'optimizer_idx':optimizer_idx})
+                return supply_kwargs(
+                    module_fn, kwargs | {"optimizer_idx": optimizer_idx}
+                )
 
         return partial(
             pipeline_item,
@@ -172,6 +174,7 @@ def detach_any(item):
         return detach_list(item)
     else:
         return item
+
 
 def supply_kwargs(fn, kwargs):
     argspec = inspect.getfullargspec(fn)

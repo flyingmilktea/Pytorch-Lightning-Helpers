@@ -124,7 +124,9 @@ class OutlierDetector(Callback):
         self.find_and_log_outliers(trainer, outputs, batch)
 
     @torch.no_grad()
-    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, *args, **kwargs):
+    def on_validation_batch_end(
+        self, trainer, pl_module, outputs, batch, *args, **kwargs
+    ):
         outputs = outputs["loss_dict"]
         self.find_and_log_outliers(trainer, outputs, batch)
 
