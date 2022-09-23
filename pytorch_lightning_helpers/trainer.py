@@ -29,7 +29,7 @@ class BaseLightningModule(pl.LightningModule):
                 lossfuncs,
                 train_stage,
             )
-        model, self.pipelines, self.param_group = build_module_pipeline(
+        model, self.pipelines, self.param_group, buffers = build_module_pipeline(
             model,
             self.optimizer_idx_map,
             train_stage,
@@ -38,6 +38,13 @@ class BaseLightningModule(pl.LightningModule):
         for k, v in model.items():
             setattr(self, k, v)
             setattr(v, "module", lambda: self)
+
+        for k, v in buffers.items():
+            if torch.is_tensor(v):
+                self.register_buffer(k, v, persistent=False)
+            else:
+                setattr(self, k, v)
+
 
     def set_config(self, config):
         self.config = munch.munchify(config)

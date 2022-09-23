@@ -97,9 +97,11 @@ def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage="default"):
 
     module_cache = torch.nn.ModuleDict()
     fn_cache = {}
+    buffers = {}
     for k, v in model_cfg.modules.items():
         module_cache.update(v["modules"])
         fn_cache[k] = v["methods"]
+        buffers.update(v.get("buffers", {}))
 
     pipelines = {}
     for pipeline_name, pipeline_cfg in model_cfg.pipelines[train_stage].items():
@@ -135,7 +137,7 @@ def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage="default"):
     else:
         param_group["default"] = module_cache.parameters()
 
-    return module_cache, pipelines, param_group
+    return module_cache, pipelines, param_group, buffers
 
 
 def build_loss(loss_cfg, train_stage):
