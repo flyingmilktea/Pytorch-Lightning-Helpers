@@ -6,6 +6,8 @@ from loguru import logger
 from nonechucks import SafeDataset
 from torch.utils.data import DataLoader, Dataset
 
+# Deprecated, schedule for removal
+
 
 class StatefulDataset(Dataset):
     """Dataset for stateful loading.
