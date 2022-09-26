@@ -1,10 +1,14 @@
 from pathlib import Path
 from typing import Callable, Iterator, List, Sequence, Union
 
-from pytorch_lightning_helpers.data.datapipes.datapipe import IterDataPipe, functional_datapipe
-from pytorch_lightning_helpers.utils import supply_kwargs
 from torch.utils.data.datapipes.utils.common import get_file_pathnames_from_root
 from torchdata.datapipes.iter import IterableWrapper
+
+from pytorch_lightning_helpers.data.datapipes.datapipe import (
+    IterDataPipe,
+    functional_datapipe,
+)
+from pytorch_lightning_helpers.utils import supply_kwargs
 
 
 @functional_datapipe("map")

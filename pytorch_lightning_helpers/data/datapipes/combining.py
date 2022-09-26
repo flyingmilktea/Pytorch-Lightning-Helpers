@@ -1,10 +1,14 @@
 import warnings
-from collections import deque, OrderedDict
+from collections import OrderedDict, deque
 from typing import Any, Callable, Deque, Iterator, List, Optional, Sized, Tuple
 
-from pytorch_lightning_helpers.data.datapipes.datapipe import IterDataPipe, functional_datapipe
-from pytorch_lightning_helpers.utils import supply_kwargs
 from torch.utils.data.datapipes.utils.common import _check_lambda_fn
+
+from pytorch_lightning_helpers.data.datapipes.datapipe import (
+    IterDataPipe,
+    functional_datapipe,
+)
+from pytorch_lightning_helpers.utils import supply_kwargs
 
 __all__ = [
     "ConcaterIterDataPipe",

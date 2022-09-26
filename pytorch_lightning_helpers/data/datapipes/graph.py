@@ -2,8 +2,9 @@ import io
 import pickle
 from typing import Any, Dict, Set, Tuple, Type, Union
 
-from pytorch_lightning_helpers.data.datapipes.datapipe import IterDataPipe
 from torch.utils.data._utils.serialization import DILL_AVAILABLE
+
+from pytorch_lightning_helpers.data.datapipes.datapipe import IterDataPipe
 
 __all__ = [
     "traverse",

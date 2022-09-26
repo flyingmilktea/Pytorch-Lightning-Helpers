@@ -32,9 +32,8 @@ def load_wav(path):
         raise ValueError("audio is not normalize from -1 to 1")
     return torch.FloatTensor(wav).unsqueeze(1)
 
+
 def switch_rootpath(rootpath, item_path):
     output_parts = rootpath.parts + item_path.parts[len(rootpath.parts) :]
     output_path = Path(*output_parts)
     return output_path
-
-

@@ -7,7 +7,10 @@
 import os
 from typing import Any, Callable, Iterator, Optional, Tuple, Union
 
-from pytorch_lightning_helpers.data.datapipes.datapipe import IterDataPipe, functional_datapipe
+from pytorch_lightning_helpers.data.datapipes.datapipe import (
+    IterDataPipe,
+    functional_datapipe,
+)
 
 U = Union[bytes, bytearray, str]
 

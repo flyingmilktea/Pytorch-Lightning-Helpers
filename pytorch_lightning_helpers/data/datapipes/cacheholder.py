@@ -15,14 +15,17 @@ from collections import deque
 from functools import partial
 from typing import Any, Callable, Deque, Dict, Iterator, List, Optional
 
+from torch.utils.data.datapipes.utils.common import DILL_AVAILABLE, _check_lambda_fn
+
+from pytorch_lightning_helpers.data.datapipes.datapipe import (
+    IterDataPipe,
+    functional_datapipe,
+)
+from pytorch_lightning_helpers.data.datapipes.graph import traverse
 from pytorch_lightning_helpers.data.datapipes.utils import (
     FileListerIterDataPipe as FileLister,
 )
-from pytorch_lightning_helpers.data.datapipes.datapipe import IterDataPipe, functional_datapipe
-from pytorch_lightning_helpers.data.datapipes.graph import traverse
 from pytorch_lightning_helpers.utils import supply_kwargs
-from torch.utils.data.datapipes.utils.common import DILL_AVAILABLE, _check_lambda_fn
-
 
 try:
     import portalocker
