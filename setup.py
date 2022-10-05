@@ -34,4 +34,10 @@ setuptools.setup(
         "hydra-core@git+https://github.com/facebookresearch/hydra.git@1.1_branch",
     ],
     extras_require={"dev": ["black", "isort", "yq", "autoflake"]},
+    entry_points={
+        "console_scripts": [
+            "lightning_trainer = pytorch_lightning_helpers.trainer:main",
+            "lightning_plotter = pytorch_lightning_helpers.plotter:main",
+        ]
+    },
 )
