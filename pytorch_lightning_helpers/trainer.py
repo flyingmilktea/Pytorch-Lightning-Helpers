@@ -1,12 +1,13 @@
 import os
-from pathlib import Path
 import traceback
-from icecream import ic
+from pathlib import Path
+
 import hydra
 import munch
 import pytorch_lightning as pl
 import torch
 from hydra.utils import instantiate
+from icecream import ic
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.callbacks import RichModelSummary
@@ -125,8 +126,11 @@ class BaseLightningModule(pl.LightningModule):
     def configure_callbacks(self):
         return [RichModelSummary(max_depth=4)]
 
+
 ic(Path.cwd())
 os.environ["HYDRA_MAIN_MODULE"] = "__main__"
+
+
 @hydra.main(config_path=str(Path.cwd()) + "/configs", config_name="config")
 def main(cfg: DictConfig):
     """

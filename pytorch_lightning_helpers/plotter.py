@@ -64,7 +64,11 @@ class BaseLightningModule(pl.LightningModule):
         )
         loss_dict = {k: v.detach() if k != "loss" else v for k, v in loss_dict.items()}
         model_output = {k: v.detach() for k, v in model_output.items()}
-        return {"loss_dict": loss_dict, "model_output": model_output, "loss": sum(map(torch.mean, loss_dict.values()))}
+        return {
+            "loss_dict": loss_dict,
+            "model_output": model_output,
+            "loss": sum(map(torch.mean, loss_dict.values())),
+        }
 
     def validation_step(self, batch, batch_idx):
         model_output = self.pipelines[self.optimizer_idx_map[0]](
@@ -100,7 +104,10 @@ class BaseLightningModule(pl.LightningModule):
     def configure_callbacks(self):
         return [RichModelSummary(max_depth=4)]
 
+
 os.environ["HYDRA_MAIN_MODULE"] = "__main__"
+
+
 @hydra.main(config_path=os.getcwd() + "/configs", config_name="config")
 def main(cfg: DictConfig):
     """
