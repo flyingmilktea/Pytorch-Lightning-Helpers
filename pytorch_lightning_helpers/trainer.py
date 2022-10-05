@@ -7,7 +7,6 @@ import munch
 import pytorch_lightning as pl
 import torch
 from hydra.utils import instantiate
-from icecream import ic
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.callbacks import RichModelSummary
@@ -125,6 +124,7 @@ class BaseLightningModule(pl.LightningModule):
 
     def configure_callbacks(self):
         return [RichModelSummary(max_depth=4)]
+
 
 os.environ["HYDRA_MAIN_MODULE"] = "__main__"
 
