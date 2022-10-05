@@ -126,8 +126,6 @@ class BaseLightningModule(pl.LightningModule):
     def configure_callbacks(self):
         return [RichModelSummary(max_depth=4)]
 
-
-ic(Path.cwd())
 os.environ["HYDRA_MAIN_MODULE"] = "__main__"
 
 
@@ -140,7 +138,6 @@ def main(cfg: DictConfig):
     )
     wandb.save("hydra-config.yaml")
     """
-    ic(Path.cwd())
     os.chdir(hydra.utils.get_original_cwd())
     pl.utilities.seed.seed_everything(42, workers=True)
     with torch.no_grad():
