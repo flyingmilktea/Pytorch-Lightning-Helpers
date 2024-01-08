@@ -13,6 +13,11 @@ def get_file_under_current_path(path, extension):
 def load_wav(path):
     sr, wav = read(path)
 
+    if sr != 16000:
+        raise ValueError(
+            f"{sr} SR doesn't match target 16000 SR, please resample the audio files"
+        )
+
     if len(wav.shape) == 2:
         wav = wav[:, 0]
     if wav.dtype == np.int16:
@@ -22,12 +27,6 @@ def load_wav(path):
     elif wav.dtype == np.uint8:
         wav = (wav - 128) / 128.0
 
-    if sr != 16000:
-        raise ValueError(
-            "{} SR doesn't match target {} SR, plz resample the audio files".format(
-                sr, 16000
-            )
-        )
     if np.max(wav) > 1.0 or np.min(wav) < -1.0:
         raise ValueError("audio is not normalize from -1 to 1")
     return torch.FloatTensor(wav).unsqueeze(1)

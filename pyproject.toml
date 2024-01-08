@@ -21,13 +21,13 @@ dependencies = [
     "tqdm",
     "flake8",
     "black",
-    "isort",
-    "autoflake",
     "pylint",
     "lightning-fabric>=2.1.3",
     "lightning>=2.1.3",
-    "autoflake",
     "yq",
+    "autoflake>=2.2.1",
+    "matplotlib>=3.8.2",
+    "scipy>=1.11.4",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
@@ -57,6 +57,7 @@ pdm-black.shell = "git ls-files '*.py' | xargs -t pdm run black -q"
 lint-format-python.composite = ["pdm-autoflake", "pdm-isort", "pdm-black"]
 lint-format-gitignore.shell = "git ls-files '.gitignore' | xargs -tI {} sort -o {} {}"
 lint-format-yaml.shell = "git ls-files '*.yml' '*.yaml' | xargs -t yq -i -S -Y -w 10000 ."
+lint-format.env = {LC_ALL="C"}
 lint-format.composite = ["lint-format-python", "lint-format-gitignore", "lint-format-yaml"]
 pdm-flake8.shell = "git ls-files '*.py' | xargs -t pdm run flake8"
 pdm-pylint.shell = "git ls-files '*.py' | xargs -t pdm run pylint"

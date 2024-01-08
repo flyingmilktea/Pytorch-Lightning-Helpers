@@ -2,7 +2,7 @@
 import inspect
 from collections.abc import Iterable
 from contextlib import nullcontext
-from functools import partial
+from functools import partial, reduce
 
 import torch
 from loguru import logger
@@ -56,66 +56,7 @@ class NoamLR(_LRScheduler):
         self.__dict__.update({k: v for k, v in state_dict.items() if k != "base_lrs"})
 
 
-def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage="default"):
-    def build_pipeline_item(
-        module, fn, start_step=-1, cond=True, enabled_optim=None, freeze=False
-    ):
-        module_fn = fn_cache[module][fn]
-
-        def pipeline_item(
-            module_fn, start_step, cond, optimizer_idx=None, freeze=False, **kwargs
-        ):
-            if isinstance(start_step, Iterable):
-                start_step = max(start_step)
-            current_optim_name = (
-                None if optimizer_idx is None else optimizer_idx_map[int(optimizer_idx)]
-            )
-            if (
-                enabled_optim is not None
-                and current_optim_name is not None
-                and enabled_optim != current_optim_name
-            ):
-                return {}
-            if kwargs.get("step", 0) < start_step:
-                return {}
-            if not cond:
-                return {}
-            args = inspect.getfullargspec(module_fn).args
-            grad_context = torch.no_grad if freeze else nullcontext
-            with grad_context():
-                return supply_kwargs(
-                    module_fn, kwargs | {"optimizer_idx": optimizer_idx}
-                )
-
-        return partial(
-            pipeline_item,
-            module_fn=module_fn,
-            start_step=start_step,
-            cond=cond,
-            freeze=freeze,
-        )
-
-    module_cache = torch.nn.ModuleDict()
-    fn_cache = {}
-    buffers = {}
-    for k, v in model_cfg.modules.items():
-        module_cache.update(v["modules"])
-        fn_cache[k] = v["methods"]
-        buffers.update(v.get("buffers", {}))
-
-    pipelines = {}
-    for pipeline_name, pipeline_cfg in model_cfg.pipelines[train_stage].items():
-        pipeline = []
-        for pipeline_cfg_item in pipeline_cfg:
-            pipeline.append(build_pipeline_item(**pipeline_cfg_item))
-        pipelines[pipeline_name] = compose(*pipeline)
-
-    inference_pipeline = []
-    for inference_pipeline_cfg_item in model_cfg.inference_pipeline:
-        inference_pipeline.append(build_pipeline_item(**inference_pipeline_cfg_item))
-
-    pipelines["inference"] = compose(*inference_pipeline)
-
+def gather_param_group(model_cfg, module_cache):
     param_group = {}
     if hasattr(model_cfg, "param_group"):
         for k, v in model_cfg.param_group.items():
@@ -135,8 +76,88 @@ def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage="default"):
         for name in modules_without_param_group:
             logger.warning(f"{name} does not belong to any param groups.")
     else:
-        param_group["default"] = module_cache.parameters()
+        param_group = module_cache.parameters()
+    return param_group
 
+
+def build_pipeline_item(
+    module,
+    fn,
+    optimizer_idx_map,
+    fn_cache,
+    start_step=-1,
+    cond=True,
+    enabled_optim=None,
+    freeze=False,
+):
+    module_fn = fn_cache[module][fn]
+
+    def pipeline_item(
+        module_fn, start_step, cond, optimizer_idx=None, freeze=False, **kwargs
+    ):
+        if isinstance(start_step, Iterable):
+            start_step = max(start_step)
+        current_optim_name = (
+            None if optimizer_idx is None else optimizer_idx_map[int(optimizer_idx)]
+        )
+        if (
+            enabled_optim is not None
+            and current_optim_name is not None
+            and enabled_optim != current_optim_name
+        ):
+            return {}
+        if kwargs.get("step", 0) < start_step:
+            return {}
+        if not cond:
+            return {}
+        grad_context = torch.no_grad if freeze else nullcontext
+        with grad_context():
+            return supply_kwargs(module_fn, kwargs | {"optimizer_idx": optimizer_idx})
+
+    return partial(
+        pipeline_item,
+        module_fn=module_fn,
+        start_step=start_step,
+        cond=cond,
+        freeze=freeze,
+    )
+
+
+def build_module_pipeline(model_cfg, optimizer_idx_map, train_stage="default"):
+    module_cache = torch.nn.ModuleDict()
+    fn_cache = {}
+    buffers = {}
+    for k, v in model_cfg.modules.items():
+        module_cache.update(v["modules"])
+        fn_cache[k] = v["methods"]
+        buffers.update(v.get("buffers", {}))
+
+    pipelines = {}
+    for pipeline_name, pipeline_cfg in model_cfg.pipelines[train_stage].items():
+        pipeline = []
+        for pipeline_cfg_item in pipeline_cfg:
+            pipeline.append(
+                build_pipeline_item(
+                    **pipeline_cfg_item,
+                    optimizer_idx_map=optimizer_idx_map,
+                    fn_cache=fn_cache,
+                )
+            )
+        pipelines[pipeline_name] = compose(*pipeline)
+
+    inference_pipeline = []
+    for inference_pipeline_cfg_item in model_cfg.inference_pipeline:
+        inference_pipeline.append(
+            build_pipeline_item(
+                **inference_pipeline_cfg_item,
+                optimizer_idx_map=optimizer_idx_map,
+                fn_cache=fn_cache,
+            )
+        )
+
+    pipelines["inference"] = compose(*inference_pipeline)
+
+    param_group = gather_param_group(model_cfg, module_cache)
     return module_cache, pipelines, param_group, buffers
 
 
@@ -166,14 +187,13 @@ def detach_values(model_output):
 
 
 def detach_any(item):
-    if type(item) == torch.Tensor:
+    if isinstance(item, torch.Tensor):
         return item.detach()
-    elif type(item) == dict:
+    if isinstance(item, dict):
         return detach_values(item)
-    elif type(item) == list:
+    if isinstance(item, list):
         return detach_list(item)
-    else:
-        return item
+    return item
 
 
 def supply_kwargs(fn, kwargs):
@@ -181,3 +201,15 @@ def supply_kwargs(fn, kwargs):
     if argspec.varkw is None:
         kwargs = {k: v for k, v in kwargs.items() if k in argspec.args}
     return fn(**kwargs)
+
+
+def rsetattr(obj, attr, val):
+    pre, _, post = attr.rpartition(".")
+    return setattr(rgetattr(obj, pre) if pre else obj, post, val)
+
+
+def rgetattr(obj, attr, *args):
+    def _getattr(obj, attr):
+        return getattr(obj, attr, *args)
+
+    return reduce(_getattr, [obj] + attr.split("."))

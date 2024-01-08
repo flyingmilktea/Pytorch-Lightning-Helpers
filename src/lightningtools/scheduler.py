@@ -1,12 +1,30 @@
 #!/usr/bin/env python3
 
-import functools
 from itertools import accumulate
 
-import lightning as L
+from lightning.pytorch.callbacks import Callback
+
+from lightningtools.utils import rgetattr, rsetattr
 
 
-class DynamicWarmerScheduler(L.Callback):
+class WarmerScheduler(Callback):
+    def __init__(self, attribute, warmup_steps, start_step=0):
+        super().__init__()
+        self.attribute = attribute
+        self.start_step = start_step
+        self.warmup_steps = warmup_steps
+
+    def on_train_batch_end(self, trainer, pl_module, *args, **kwargs):
+        new_val = self.get_value(trainer.global_step)
+        setattr(pl_module, self.attribute, new_val)
+        pl_module.log(f"warmer/{self.attribute}", new_val, on_step=True)
+
+    def get_value(self, global_step):
+        val = (global_step - self.start_step) / self.warmup_steps
+        return min(max(val, 0), 1)
+
+
+class DynamicWarmerScheduler(Callback):
     def __init__(
         self,
         attribute,
@@ -33,22 +51,21 @@ class DynamicWarmerScheduler(L.Callback):
     def on_train_batch_end(self, trainer, pl_module, *args, **kwargs):
         logs = trainer.callback_metrics
         new_val = self.get_value(
-            self.rgetattr(pl_module, self.attribute),
+            rgetattr(pl_module, self.attribute),
             logs.get(self.monitor),
             trainer.global_step,
         )
-        self.rsetattr(pl_module, self.attribute, new_val)
-        pl_module.log(f"GradientReverse/{self.attribute}", new_val, on_step=True)
+        rsetattr(pl_module, self.attribute, new_val)
+        pl_module.log(f"warmer/{self.attribute}", new_val, on_step=True)
 
     def get_criterion(self, mode):
         if mode == "increase_when_above":
             return lambda val: val < self.threshold
-        elif mode == "increase_when_below":
+        if mode == "increase_when_below":
             return lambda val: val > self.threshold
-        else:
-            raise ValueError(
-                f'{mode} is not a mode in ["increase_when_below", "increase_when_above"]'
-            )
+        raise ValueError(
+            f'{mode} is not a mode in ["increase_when_below", "increase_when_above"]'
+        )
 
     def get_value(self, old_val, monitor_val, global_step):
         if global_step < self.start_step:
@@ -67,9 +84,7 @@ class DynamicWarmerScheduler(L.Callback):
         return val
 
     def on_load_checkpoint(self, trainer, pl_module, callback_state):
-        val = callback_state.get(f"GradientReverse/{self.attribute}", self.init_value)[
-            "val"
-        ]
+        val = callback_state.get(f"warmer/{self.attribute}", self.init_value)["val"]
         setattr(pl_module, self.attribute, val)
 
     def on_save_checkpoint(
@@ -78,23 +93,13 @@ class DynamicWarmerScheduler(L.Callback):
         pl_module,
         checkpoint,
     ):
-        checkpoint[f"GradientReverse/{self.attribute}"] = {
-            "val": self.rgetattr(pl_module, self.attribute)
+        checkpoint[f"warmer/{self.attribute}"] = {
+            "val": rgetattr(pl_module, self.attribute)
         }
         return checkpoint
 
-    def rsetattr(self, obj, attr, val):
-        pre, _, post = attr.rpartition(".")
-        return setattr(self.rgetattr(obj, pre) if pre else obj, post, val)
 
-    def rgetattr(self, obj, attr, *args):
-        def _getattr(obj, attr):
-            return getattr(obj, attr, *args)
-
-        return functools.reduce(_getattr, [obj] + attr.split("."))
-
-
-class SwitchDataLoaderScheduler(L.Callback):
+class SwitchDataLoaderScheduler(Callback):
     def __init__(self, max_epoch_each_stage):
         super().__init__()
         self.max_epoch_each_stage = list(

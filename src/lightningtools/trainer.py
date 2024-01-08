@@ -3,26 +3,26 @@ import traceback
 from pathlib import Path
 
 import hydra
-import munch
 import lightning as L
+import munch
 import torch
 from hydra.utils import instantiate
+from lightning.pytorch.callbacks import RichModelSummary
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
-from lightning.pytorch.callbacks import RichModelSummary
 
 from lightningtools import reporter
-from lightningtools.utils import (
-    build_loss,
-    build_module_pipeline,
-    detach_any,
-)
+from lightningtools.utils import build_loss, build_module_pipeline, detach_any
 
 
 class BaseLightningModule(L.LightningModule):
     def __init__(
-        self, model=None, lossfuncs=None, optimizer_order=None,
-        train_stage="default", gradient_clip_val=None,
+        self,
+        model=None,
+        lossfuncs=None,
+        optimizer_order=None,
+        train_stage="default",
+        gradient_clip_val=None,
     ):
         super().__init__()
         self.automatic_optimization = False
@@ -58,7 +58,6 @@ class BaseLightningModule(L.LightningModule):
         return results_dict["out"].squeeze().cpu().numpy()
 
     def training_step(self, batch, batch_idx):
-
         optimizer_idx = batch_idx % len(self.optimizer_idx_map)
         stage_name = self.optimizer_idx_map[int(optimizer_idx)]
         if stage_name not in self.pipelines:
@@ -82,8 +81,11 @@ class BaseLightningModule(L.LightningModule):
         opt.zero_grad()
 
         self.manual_backward(total_loss)
-        self.clip_gradients(opt, gradient_clip_val=self.gradient_clip_val,
-                            gradient_clip_algorithm="norm")
+        self.clip_gradients(
+            opt,
+            gradient_clip_val=self.gradient_clip_val,
+            gradient_clip_algorithm="norm",
+        )
         opt.step()
 
         loss_dict["loss"] = total_loss
@@ -168,7 +170,7 @@ def main(cfg: DictConfig):
     else:
         lightning_module = hydra.utils.get_method(cfg.lightning_module["_target_"])
         params = {
-            k: instantiate(v) if type(v) != str else v
+            k: instantiate(v) if isinstance(v, str) else v
             for k, v in cfg.lightning_module.items()
             if k != "_target_"
         }
