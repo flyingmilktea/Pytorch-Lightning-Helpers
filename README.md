@@ -1,4 +1,4 @@
-# Pytorch-Lightning-Helpers
+# Lightning tools
 Customization on top of pytorch-lightning for quick and easy experimentations. Inspired by 
 
 1. [Speechbrain's](https://github.com/speechbrain/speechbrain) mixed yaml configuration, dependency injection and code customization approach.

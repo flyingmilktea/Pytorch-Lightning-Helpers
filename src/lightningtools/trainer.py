@@ -1,31 +1,39 @@
 import os
 import traceback
+from pathlib import Path
 
 import hydra
 import munch
-import pytorch_lightning as pl
+import lightning as L
 import torch
 from hydra.utils import instantiate
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
-from pytorch_lightning.callbacks import RichModelSummary
+from lightning.pytorch.callbacks import RichModelSummary
 
-from pytorch_lightning_helpers import reporter
-from pytorch_lightning_helpers.utils import build_loss, build_module_pipeline
+from lightningtools import reporter
+from lightningtools.utils import (
+    build_loss,
+    build_module_pipeline,
+    detach_any,
+)
 
 
-class BaseLightningModule(pl.LightningModule):
+class BaseLightningModule(L.LightningModule):
     def __init__(
-        self, model=None, lossfuncs=None, optimizer_order=None, train_stage="default"
+        self, model=None, lossfuncs=None, optimizer_order=None,
+        train_stage="default", gradient_clip_val=None,
     ):
         super().__init__()
+        self.automatic_optimization = False
         self.optimizer_idx_map = optimizer_order
+        self.gradient_clip_val = gradient_clip_val
         if lossfuncs is not None:
             self.losses = build_loss(
                 lossfuncs,
                 train_stage,
             )
-        model, self.pipelines, self.param_group = build_module_pipeline(
+        model, self.pipelines, self.param_group, buffers = build_module_pipeline(
             model,
             self.optimizer_idx_map,
             train_stage,
@@ -35,6 +43,12 @@ class BaseLightningModule(pl.LightningModule):
             setattr(self, k, v)
             setattr(v, "module", lambda: self)
 
+        for k, v in buffers.items():
+            if torch.is_tensor(v):
+                self.register_buffer(k, v, persistent=False)
+            else:
+                setattr(self, k, v)
+
     def set_config(self, config):
         self.config = munch.munchify(config)
 
@@ -43,11 +57,12 @@ class BaseLightningModule(pl.LightningModule):
         results_dict = self.lightning_module(srcs, refs)
         return results_dict["out"].squeeze().cpu().numpy()
 
-    def training_step(self, batch, batch_idx, optimizer_idx=0):
+    def training_step(self, batch, batch_idx):
+
+        optimizer_idx = batch_idx % len(self.optimizer_idx_map)
         stage_name = self.optimizer_idx_map[int(optimizer_idx)]
         if stage_name not in self.pipelines:
             return None
-
         model_output = self.pipelines[stage_name](
             **batch, optimizer_idx=optimizer_idx, step=self.global_step
         )
@@ -58,16 +73,34 @@ class BaseLightningModule(pl.LightningModule):
         )
         if len(loss_dict) == 0:
             return None
-        loss_dict["loss"] = sum(map(torch.mean, loss_dict.values()))
+        total_loss = sum(map(torch.mean, loss_dict.values()))
+
+        if len(self.optimizer_idx_map) == 1:
+            opt = self.optimizers()
+        else:
+            opt = self.optimizers()[optimizer_idx]
+        opt.zero_grad()
+
+        self.manual_backward(total_loss)
+        self.clip_gradients(opt, gradient_clip_val=self.gradient_clip_val,
+                            gradient_clip_algorithm="norm")
+        opt.step()
+
+        loss_dict["loss"] = total_loss
+        if not total_loss.requires_grad:
+            total_loss = None
         reporter.report_dict(
             {f"train_{stage_name}/" + k: torch.mean(v) for k, v in loss_dict.items()}
         )
-        loss_dict = {k: v.detach() if k != "loss" else v for k, v in loss_dict.items()}
-        model_output = {k: v.detach() for k, v in model_output.items()}
+        loss_dict = {
+            k: detach_any(v) if k != "loss" else v for k, v in loss_dict.items()
+        }
+
+        model_output = {k: detach_any(v) for k, v in model_output.items()}
         return {
             "loss_dict": loss_dict,
             "model_output": model_output,
-            "loss": sum(map(torch.mean, loss_dict.values())),
+            "loss": total_loss,
         }
 
     def validation_step(self, batch, batch_idx):
@@ -77,10 +110,10 @@ class BaseLightningModule(pl.LightningModule):
         if model_output is None:
             return None
         loss_dict = self.losses["val"](**(batch | model_output), step=self.global_step)
-
         if len(loss_dict) == 0:
             return None
-        loss_dict["loss"] = sum(map(torch.mean, loss_dict.values()))
+        total_loss = sum(map(torch.mean, loss_dict.values()))
+        loss_dict["loss"] = total_loss
         reporter.report_dict(
             {"valid/" + k: torch.mean(v) for k, v in loss_dict.items()}
         )
@@ -91,7 +124,7 @@ class BaseLightningModule(pl.LightningModule):
             }
             try:
                 reporter.logging_disabled = True
-                model_inference_output = self.forward(first_data | model_output)
+                model_inference_output = self.forward(first_data)
                 reporter.logging_disabled = False
                 if model_inference_output is not None:
                     self.log_eval(batch, model_output, model_inference_output)
@@ -99,7 +132,11 @@ class BaseLightningModule(pl.LightningModule):
                 traceback.print_exc()
                 logger.error(e)
 
-        return loss_dict
+        return {
+            "loss_dict": loss_dict,
+            "model_output": model_output,
+            "loss": total_loss,
+        }
 
     def configure_callbacks(self):
         return [RichModelSummary(max_depth=4)]
@@ -108,7 +145,7 @@ class BaseLightningModule(pl.LightningModule):
 os.environ["HYDRA_MAIN_MODULE"] = "__main__"
 
 
-@hydra.main(config_path=os.getcwd() + "/configs", config_name="config")
+@hydra.main(config_path=str(Path.cwd()) + "/configs", config_name="config")
 def main(cfg: DictConfig):
     """
     os.symlink(
@@ -117,9 +154,8 @@ def main(cfg: DictConfig):
     )
     wandb.save("hydra-config.yaml")
     """
-
     os.chdir(hydra.utils.get_original_cwd())
-    pl.utilities.seed.seed_everything(42, workers=True)
+    L.fabric.utilities.seed.seed_everything(42, workers=True)
     with torch.no_grad():
         dm = instantiate(cfg.dm)
         trainer = instantiate(cfg.trainer)
@@ -143,7 +179,7 @@ def main(cfg: DictConfig):
             strict=False,
         )
         lightning_module.set_config(cfg)
-        trainer.predict(lightning_module, dm)
+        trainer.fit(lightning_module, dm)
 
 
 if __name__ == "__main__":

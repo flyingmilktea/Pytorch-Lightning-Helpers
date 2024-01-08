@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from FastSpeech.utils import rgetattr, rsetattr
-from pytorch_lightning.callbacks.base import Callback
+from lightning.pytorch.callbacks.base import Callback
 
 
 class WarmerScheduler(Callback):

@@ -1,9 +1,9 @@
-import pytorch_lightning as pl
+import lightning as L
 import toolz
 import torch
 
 
-class Reporter(pl.Callback):
+class Reporter(L.Callback):
     def __init__(self):
         self.write_fns = {}
         self.trainer = None

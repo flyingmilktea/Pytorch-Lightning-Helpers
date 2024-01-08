@@ -3,10 +3,10 @@
 import functools
 from itertools import accumulate
 
-import pytorch_lightning as pl
+import lightning as L
 
 
-class DynamicWarmerScheduler(pl.Callback):
+class DynamicWarmerScheduler(L.Callback):
     def __init__(
         self,
         attribute,
@@ -94,7 +94,7 @@ class DynamicWarmerScheduler(pl.Callback):
         return functools.reduce(_getattr, [obj] + attr.split("."))
 
 
-class SwitchDataLoaderScheduler(pl.Callback):
+class SwitchDataLoaderScheduler(L.Callback):
     def __init__(self, max_epoch_each_stage):
         super().__init__()
         self.max_epoch_each_stage = list(

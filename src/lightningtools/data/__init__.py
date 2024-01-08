@@ -1,7 +1,7 @@
 """Dataset for reconstruction scheme."""
 
 
-import pytorch_lightning as pl
+import lightning as L
 from loguru import logger
 from nonechucks import SafeDataset
 from torch.utils.data import DataLoader, Dataset
@@ -25,7 +25,7 @@ class StatefulDataset(Dataset):
         return self._load_data(*self.datalist[index])
 
 
-class MultiStageDataModule(pl.LightningDataModule):
+class MultiStageDataModule(L.LightningDataModule):
     """DataModule with multiple stages for different data"""
 
     def __init__(self, traindms, valdm, safe=False):
