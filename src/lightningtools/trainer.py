@@ -1,10 +1,13 @@
+import logging
 import os
 import traceback
+import warnings
 from pathlib import Path
 
 import hydra
 import lightning as L
 import munch
+import ray
 import torch
 from hydra.utils import instantiate
 from lightning.pytorch.callbacks import RichModelSummary
@@ -13,6 +16,11 @@ from omegaconf import DictConfig, OmegaConf
 
 from lightningtools import reporter
 from lightningtools.utils import build_loss, build_module_pipeline, detach_any
+
+ray.data.set_progress_bars(enabled=False)
+ray_logger = logging.getLogger("ray")
+while ray_logger.hasHandlers():
+    ray_logger.removeHandler(ray_logger.handlers[0])
 
 
 class BaseLightningModule(L.LightningModule):
@@ -157,9 +165,19 @@ def main(cfg: DictConfig):
     wandb.save("hydra-config.yaml")
     """
     os.chdir(hydra.utils.get_original_cwd())
+
+    def logging_setup_func():
+        # disable internal warnings from ray data
+        warnings.filterwarnings(action="ignore")
+
+    ray.init(
+        runtime_env={"worker_process_setup_hook": logging_setup_func},
+        log_to_driver=False,
+    )
+
     L.fabric.utilities.seed.seed_everything(42, workers=True)
     with torch.no_grad():
-        dm = instantiate(cfg.dm)
+        dm = instantiate(cfg.data_module.data_module)
         trainer = instantiate(cfg.trainer)
     trainer.callbacks.append(reporter)
 

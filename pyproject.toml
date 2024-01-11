@@ -28,6 +28,7 @@ dependencies = [
     "autoflake>=2.2.1",
     "matplotlib>=3.8.2",
     "scipy>=1.11.4",
+    "ray[data]>=2.9.0",
 ]
 requires-python = ">=3.10"
 readme = "README.md"

@@ -68,7 +68,7 @@ class Reporter(L.Callback):
         if tag not in self.write_fns:
             args = list(recursive_map(clean_data_type, args))
             kwargs = recursive_valmap(clean_data_type, kwargs)
-            self.pl_module.log(name, *args, **kwargs),
+            self.pl_module.log(name, *args, **kwargs)
         elif (
             self.trainer.global_step % self.trainer.log_every_n_steps == 0
             or self.stage == "val"
