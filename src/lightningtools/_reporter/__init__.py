@@ -1,6 +1,7 @@
 import lightning as L
 import toolz
 import torch
+from lightning.pytorch.utilities import rank_zero_only
 
 
 class Reporter(L.Callback):
@@ -68,7 +69,7 @@ class Reporter(L.Callback):
         if tag not in self.write_fns:
             args = list(recursive_map(clean_data_type, args))
             kwargs = recursive_valmap(clean_data_type, kwargs)
-            self.pl_module.log(name, *args, **kwargs)
+            self.pl_module.log(name, *args, **kwargs, sync_dist=True)
         elif (
             self.trainer.global_step % self.trainer.log_every_n_steps == 0
             or self.stage == "val"
@@ -83,8 +84,10 @@ class Reporter(L.Callback):
             return
         if self.logging_disabled:
             return
+        if not self.trainer.is_global_zero:
+            return
         if tag not in self.write_fns:
-            self.pl_module.log_dict(kwargs_dict)
+            self.pl_module.log_dict(kwargs_dict, sync_dist=True)
         elif (
             self.trainer.global_step % self.trainer.log_every_n_steps == 0
             or self.stage == "val"
@@ -93,6 +96,7 @@ class Reporter(L.Callback):
                 kwargs = toolz.valmap(clean_data_type, kwargs)
                 self.log_media_to_wandb(name, tag=tag, **kwargs)
 
+    @rank_zero_only
     def log_media_to_wandb(self, name, *args, tag, **kwargs):
         if self.stage == "val":
             name = f"val_{name}"

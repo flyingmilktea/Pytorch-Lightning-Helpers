@@ -17,7 +17,7 @@ from omegaconf import DictConfig, OmegaConf
 from lightningtools import reporter
 from lightningtools.utils import build_loss, build_module_pipeline, detach_any
 
-ray.data.set_progress_bars(enabled=False)
+ray.data.DataContext.get_current().enable_progress_bars
 ray_logger = logging.getLogger("ray")
 while ray_logger.hasHandlers():
     ray_logger.removeHandler(ray_logger.handlers[0])
@@ -155,7 +155,7 @@ class BaseLightningModule(L.LightningModule):
 os.environ["HYDRA_MAIN_MODULE"] = "__main__"
 
 
-@hydra.main(config_path=str(Path.cwd()) + "/configs", config_name="config")
+@hydra.main(config_path=str(Path.cwd()) + "/configs", config_name="config", version_base='1.3')
 def main(cfg: DictConfig):
     """
     os.symlink(

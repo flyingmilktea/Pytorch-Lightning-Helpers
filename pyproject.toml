@@ -47,9 +47,9 @@ lightning_trainer = "lightningtools.trainer:main"
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
-[tool.pdm]
-package-type = "library"
 
+[tool.pdm]
+distribution = true
 [tool.pdm.scripts]
 start.env_file=".env"
 pdm-autoflake.shell = "git ls-files '*.py' | xargs -t pdm run autoflake --in-place --expand-star-imports --remove-all-unused-imports --ignore-init-module-imports"
