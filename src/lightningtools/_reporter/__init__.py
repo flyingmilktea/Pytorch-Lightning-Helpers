@@ -31,6 +31,8 @@ class Reporter(L.Callback):
             return
         if self.logging_disabled:
             return
+        if self.val_first_batch and tag not in self.write_fns:
+            return
         if not (
             self.trainer.global_step % self.trainer.log_every_n_steps == 0
             or self.stage == "val"
@@ -66,10 +68,12 @@ class Reporter(L.Callback):
             return
         if self.logging_disabled:
             return
+        if self.val_first_batch and tag not in self.write_fns:
+            return
         if tag not in self.write_fns:
             args = list(recursive_map(clean_data_type, args))
             kwargs = recursive_valmap(clean_data_type, kwargs)
-            self.pl_module.log(name, *args, **kwargs, sync_dist=True)
+            self.pl_module.log(name, *args, **kwargs, sync_dist=True, on_step=self.stage!='val', on_epoch=self.stage=='val')
         elif (
             self.trainer.global_step % self.trainer.log_every_n_steps == 0
             or self.stage == "val"
@@ -84,10 +88,10 @@ class Reporter(L.Callback):
             return
         if self.logging_disabled:
             return
-        if not self.trainer.is_global_zero:
+        if self.val_first_batch and tag not in self.write_fns:
             return
         if tag not in self.write_fns:
-            self.pl_module.log_dict(kwargs_dict, sync_dist=True)
+            self.pl_module.log_dict(kwargs_dict, sync_dist=True, on_step=self.stage!='val', on_epoch=self.stage=='val')
         elif (
             self.trainer.global_step % self.trainer.log_every_n_steps == 0
             or self.stage == "val"
@@ -98,6 +102,8 @@ class Reporter(L.Callback):
 
     @rank_zero_only
     def log_media_to_wandb(self, name, *args, tag, **kwargs):
+        if not self.trainer.is_global_zero:
+            return
         if self.stage == "val":
             name = f"val_{name}"
         self.pl_module.logger.experiment.log(
@@ -114,10 +120,7 @@ class Reporter(L.Callback):
 
     def on_validation_batch_start(self, batch_idx, *args, **kwargs):
         if self.val_first_batch:
-            self.logging_disabled = False
             self.val_first_batch = False
-        else:
-            self.logging_disabled = True
 
     def on_validation_epoch_start(self, *args, **kwargs):
         self.stage = "val"
