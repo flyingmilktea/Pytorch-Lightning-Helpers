@@ -27,18 +27,13 @@ class Reporter(L.Callback):
 
     @torch.no_grad()
     def delayed_report(self, name, tag=None, reducer=None, **kwargs):
-        if self.pl_module is None:
-            return
-        if self.logging_disabled:
-            return
-        if self.val_first_batch and tag not in self.write_fns:
+        if self.skip_log(tag):
             return
         if not (
             self.trainer.global_step % self.trainer.log_every_n_steps == 0
             or self.stage == "val"
         ):
             return
-
         if name in self.delayed_report_storage:
             assert self.delayed_report_storage[name]["tag"] == tag
             if reducer is not None:
@@ -64,11 +59,7 @@ class Reporter(L.Callback):
     @torch.no_grad()
     def report(self, name, *args, tag=None, **kwargs):
         # TODO: solve logged multiple times for multiple optimizer_idx
-        if self.pl_module is None:
-            return
-        if self.logging_disabled:
-            return
-        if self.val_first_batch and tag not in self.write_fns:
+        if self.skip_log(tag):
             return
         if tag not in self.write_fns:
             args = list(recursive_map(clean_data_type, args))
@@ -84,11 +75,7 @@ class Reporter(L.Callback):
 
     @torch.no_grad()
     def report_dict(self, kwargs_dict, *, tag=None):
-        if self.pl_module is None:
-            return
-        if self.logging_disabled:
-            return
-        if self.val_first_batch and tag not in self.write_fns:
+        if self.skip_log(tag):
             return
         if tag not in self.write_fns:
             self.pl_module.log_dict(kwargs_dict, sync_dist=True, on_step=self.stage!='val', on_epoch=self.stage=='val')
@@ -99,6 +86,16 @@ class Reporter(L.Callback):
             for name, kwargs in kwargs_dict.items():
                 kwargs = toolz.valmap(clean_data_type, kwargs)
                 self.log_media_to_wandb(name, tag=tag, **kwargs)
+
+    def skip_log(self, tag):
+        if self.pl_module is None:
+            return True
+        if self.logging_disabled:
+            return True
+        if self.stage == 'val' and (not self.val_first_batch and tag in self.write_fns):
+            return True
+        return False
+
 
     @rank_zero_only
     def log_media_to_wandb(self, name, *args, tag, **kwargs):
@@ -118,10 +115,6 @@ class Reporter(L.Callback):
     def on_sanity_check_end(self, *args, **kwargs):
         self.logging_disabled = False
 
-    def on_validation_batch_start(self, batch_idx, *args, **kwargs):
-        if self.val_first_batch:
-            self.val_first_batch = False
-
     def on_validation_epoch_start(self, *args, **kwargs):
         self.stage = "val"
         self.val_first_batch = True
@@ -134,6 +127,7 @@ class Reporter(L.Callback):
         self.flush_delayed_report()
 
     def on_validation_batch_end(self, *args, **kwargs):
+        self.val_first_batch = False
         self.flush_delayed_report()
 
 
