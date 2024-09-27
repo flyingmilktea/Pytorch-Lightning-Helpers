@@ -3,6 +3,7 @@ import inspect
 from collections.abc import Iterable
 from contextlib import nullcontext
 from functools import partial, reduce
+import copy
 
 import torch
 from loguru import logger
@@ -55,7 +56,6 @@ class NoamLR(_LRScheduler):
         # Override so that we can change the lr on resume
         self.__dict__.update({k: v for k, v in state_dict.items() if k != "base_lrs"})
 
-
 def gather_param_group(model_cfg, module_cache):
     param_group = {}
     if hasattr(model_cfg, "param_group"):
@@ -63,7 +63,7 @@ def gather_param_group(model_cfg, module_cache):
             group_module_dict = torch.nn.ModuleDict()
             for name in v:
                 group_module_dict.update(model_cfg.modules[name]["modules"])
-            param_group[k] = group_module_dict.parameters()
+            param_group[k] = restartable(group_module_dict.parameters)()
         modules_in_param_group = set(
             sum(OmegaConf.to_container(model_cfg.param_group).values(), [])
         )
@@ -213,3 +213,21 @@ def rgetattr(obj, attr, *args):
         return getattr(obj, attr, *args)
 
     return reduce(_getattr, [obj] + attr.split("."))
+
+class GeneratorRestartHandler(object):
+    def __init__(self, gen_func, argv, kwargv):
+        self.gen_func = gen_func
+        self.argv = copy.copy(argv)
+        self.kwargv = copy.copy(kwargv)
+        self.local_copy = iter(self)
+
+    def __iter__(self):
+        return self.gen_func(*self.argv, **self.kwargv)
+
+    def __next__(self):
+        return next(self.local_copy)
+
+def restartable(g_func: callable) -> callable:
+    def tmp(*argv, **kwargv):
+        return GeneratorRestartHandler(g_func, argv, kwargv)
+    return tmp
